@@ -365,7 +365,7 @@ svg {
   id="xmlInput" 
   type="file" 
   onchange="fileHandler(event)"/>
-
+<button id="useDefaultFile">Use Default File</button>
 
 
   
@@ -523,6 +523,18 @@ document.getElementById('zoomOut').addEventListener('click', () => {
   tieify();
 
 });
+
+document.getElementById('useDefaultFile').addEventListener('click', function() {
+  fetch('ddd.xml') // Adjust the path if your XML file is in a specific directory
+    .then(response => response.text())
+    .then(data => {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(data,"text/xml");
+      populateStaffFromMusicXML(xmlDoc);
+    })
+    .catch(error => console.error('Error loading the default file:', error));
+});
+
  
 /*
 
