@@ -1,0 +1,885 @@
+<!-- 
+TODO:
+
+ASSETS
+dotted note
+rest support
+natural, sharps and flats
+clefs
+key signature support
+
+
+MVP FUNCTIONALITY
+fix pinch should zoom like cmd+
+swipe auto scrolls to satisfying position
+buttons for "next page"
+save melodies/files somewhere
+font editor make stems and notes as big as u want
+
+STRETCH GOALS
+play notes
+lyrics on bottom
+chords on top 
+listening for notes and plotting them
+
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- <meta http-equiv="refresh" content="10"> -->
+
+<title>Music Note</title>
+<!--
+..######...######...######.
+.##....##.##....##.##....##
+.##.......##.......##......
+.##........######...######.
+.##.............##.......##
+.##....##.##....##.##....##
+..######...######...######.
+###########################
+-->
+<style>
+:root {
+  --space-color: white;
+  --line-color: black;
+  --note-color: black;
+  --tie-color: red;
+
+  --staff-width: 1.6em;
+  --space-height: 1em;
+  --line-height: 0.16em;
+
+  --note-height: 0.775em;
+  --note-width: 1.033em;
+
+  --stem-height: 2.33em;
+  --stem-width: 0.1em;
+
+  --flag-height: 0.83em;
+  --flag-width: 0.3em;
+
+  --tie-thickness:0;
+}
+
+@media (prefers-color-scheme: dark) {
+  
+  :root {
+    --space-color: black;
+    --line-color: white;
+    --note-color: white;
+  }
+
+  body {
+    background-color: black;
+  }
+  
+}
+html, body {
+  display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  margin: 0;
+  padding: 0;
+  height: 100%; 
+  width: 100%;  
+  overflow: hidden;
+   -webkit-touch-callout: none;  /* iOS Safari */
+  -webkit-user-select: none;    /* Safari */
+  -khtml-user-select: none;     /* Konqueror HTML */
+  -moz-user-select: none;       /* Old versions of Firefox */
+  -ms-user-select: none;        /* IE/Edge */
+  user-select: none;            /* Non-prefixed version, currently supported by Chrome, Opera and Firefox */
+}
+
+svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.controls {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+
+  display: flex;
+}
+#xmlInput {
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+  
+.sheet {
+  padding: 40px;
+  position:relative;
+  display: flex;
+    flex-wrap: wrap;
+    overflow-y: auto;
+}
+.measure {
+  position: relative;
+  display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+  flex-grow:1;
+}
+.beam {
+  position:relative;
+  display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+  z-index: 4;
+}
+.staff {
+  flex-grow:1;
+  position: relative;
+  display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  min-width: var(--staff-width);
+  /* margin-bottom: var(--space-height); */
+  z-index: 0;
+  margin:0;
+}
+
+.line {
+  background-color: var(--line-color);
+  height: var(--line-height);
+  position: relative;
+  display: flex;
+    justify-content: center;
+}
+.line > .note {
+  position: absolute;
+  top: calc(var(--space-height)* -0.3);
+}
+
+.space {
+  height: var(--space-height);
+  position: relative;
+  display: flex;
+    justify-content: center;
+}
+.space > .note {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.stem-down {
+  rotate: 180deg !important;
+}
+
+.stem-up {
+  rotate: 0deg !important;
+}
+
+.high > .note {
+  rotate: 180deg;
+}
+.high > .line {
+  top: 0
+}
+.high.space > .note {
+  top:  calc(var(--space-height) * 0.1);
+  transform: translateY(0);
+}
+
+.ledger {
+  background-color: var(--space-color);
+}
+.ledger:has(div){
+  background-color: var(--line-color);
+  /* height: 0.1em; */
+}
+
+/* <!--
+###  #  ### ###  ##
+# # # #  #  #   #
+# # # #  #  ##   #
+# # # #  #  #     #
+# #  #   #  ### ##
+--> */
+.note {
+  position: relative;
+  width: var(--note-width);
+  height: var(--note-height);
+  z-index: 2;
+}
+.note > .head {
+  position: absolute;
+  width: var(--note-width);
+  height: var(--note-height);
+  rotate: -27deg;
+  background-color: var(--note-color);
+  border-radius: 50%;
+}
+.note.whole > .head {
+  position: absolute;
+  width: var(--note-width);
+  height: var(--note-height);
+  background-color: var(--note-color);
+  border-radius: 50%;
+  rotate: 0deg;
+}
+
+.note.half > .head::after {
+  content: "";
+  position: absolute;
+  width: 80%;
+  height: 50%;
+  border-radius: 50%;
+  background-color: var(--space-color);
+  z-index: 2;
+  top: calc(var(--space-height) * 0.2);
+  left: calc(var(--space-height) * 0.1);
+}
+.note.whole > .head::after {
+  content: "";
+  position: absolute;
+  width: 60%;
+  height: 50%;
+  border-radius: 50%;
+  background-color: var(--space-color);
+  z-index: 2;
+  top: 25%;
+  left: 21%;
+  rotate: 40deg;
+}
+.line > .note.whole ::before {
+  content: "";
+  background-color: var(--line-color);
+  height: var(--line-height);
+  position: absolute;
+  width: 100%;
+  top: calc(var(--space-height) * 0.3);
+  rotate: 0deg;
+  z-index: 3;
+}
+
+.line > .note.half ::before {
+  content: "";
+  background-color: var(--line-color);
+  height: var(--line-height);
+  position: absolute;
+  width: 100%;
+  top: calc(var(--space-height) * 0.3);
+  rotate: 27deg;
+  z-index: 3;
+}
+
+/* <!--
+ ## ### ### # #
+#    #  #   ###
+ #   #  ##  ###
+  #  #  #   # #
+##   #  ### # #
+--> */
+.stem {
+  position: absolute;
+  right: 3%;
+  top: calc(var(--space-height) * -2);;
+  width: var(--stem-width);
+  height: var(--stem-height);
+  background-color: var(--note-color);
+  z-index: 1;
+}
+.note.whole > .stem {
+  display:none;
+}
+
+/* <!--
+### #    #   ##
+#   #   # # #
+##  #   ### # #
+#   #   # # # #
+#   ### # #  ##
+--> */
+.flag {
+  display:none;
+}
+.note.sixteenth,
+.note.eighth > .flag {
+  display:block;
+  background-color: var(--note-color);
+  position: absolute;
+  right: calc(var(--space-height) * -0.233);
+  bottom: calc(var(--space-height) * 1.93);
+  width: var(--flag-width);
+  height: var(--flag-height);
+  border-top-right-radius: calc(var(--space-height) * 0.5);
+  border-bottom-right-radius:calc(var(--space-height) *  0.5);
+}
+
+
+
+
+
+
+.measure-bar {
+  display: flex;
+  flex-direction: column;
+}
+.measure-bar > div {
+  display: block;
+  width: calc(var(--space-height) * 0.3);
+  height: calc(var(--space-height) * 4.83);
+  background-color: var(--line-color);
+  margin-top: calc(var(--space-height) * 1.1667);
+  margin-bottom: calc(var(--space-height) * 1);
+  position: relative;
+}
+
+.lineContainer {
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+}
+
+/* .tie-under {
+    border-color: green blue red yellow;
+    border-radius: 50px 50px 50px 50px;
+} */
+
+</style>
+</head>
+<!--
+.##.....##.########.##.....##.##......
+.##.....##....##....###...###.##......
+.##.....##....##....####.####.##......
+.#########....##....##.###.##.##......
+.##.....##....##....##.....##.##......
+.##.....##....##....##.....##.##......
+.##.....##....##....##.....##.########
+######################################
+-->
+<body onload="init();" style="touch-action:none" >
+<input 
+  id="xmlInput" 
+  type="file" 
+  onchange="fileHandler(event)"/>
+
+
+
+  
+<div class="sheet" id="zoomContainer"></div>
+
+<div class="controls">
+<button 
+  onclick="addStaffBlock()">Add
+</button>
+<button id="zoomIn">+</button>
+<button id="zoomOut">-</button>
+</div>
+<section class="assets"style="display:none;">
+
+<div class="measure">
+  <div class="measure-bar">
+    <div></div>
+    <div></div>
+  </div>
+</div>
+<div class="staff" 
+  ondrop="dropHandler(event)" 
+  ondragover="dragHandler(event)" 
+  ondragleave="dragHandler(event)" >
+    <div class="line  a5 high ledger"></div>
+    <div class="space g5 high"></div>
+    <div class="line  f5 high"></div>
+    <div class="space e5 high"></div>
+    <div class="line  d5 high"></div>
+    <div class="space c5 high"></div>
+    <div class="line  b4 high"></div>
+    <div class="space a4"></div>
+    <div class="line  g4"></div>
+    <div class="space f4"></div>
+    <div class="line  e4"></div>
+    <div class="space d4"></div>
+    <div class="line  c4 ledger"></div>
+    <div class="space b3 high"></div>
+    <div class="line  a3 high"></div>
+    <div class="space g3 high"></div>
+    <div class="line  f3 high"></div>
+    <div class="space e3 high"></div>
+    <div class="line  d3 high"></div>
+    <div class="space c3"></div>
+    <div class="line  b2"></div>
+    <div class="space a2"></div>
+    <div class="line  g2"></div>
+    <div class="space f2"></div>
+    <div class="line  e2 ledger"></div>
+</div>
+<div class="note"
+  ondragstart="dragstartHandler(event)"
+  ondblclick="showMenu(event)"
+  draggable="true">
+    <div class="head"></div>
+    <div class="stem"></div>
+    <div class="flag"></div>
+</div> 
+<div class="beam"></div>
+
+<svg class="lineContainer"></svg>
+
+<!-- <div class="menu"
+  onclick="">
+    <div class="option">Sharp</div>
+    <div class="option">Flat</div>
+    <div class="option">Whole</div>
+    <div class="option">Half</div>
+    <div class="option">Quarter</div>
+    <div class="option">Eighth</div>
+    <div class="option">Sixteenth</div>
+    <div class="option">Delete</div>
+</div> -->
+</section>
+</body>
+<script>
+// Global vars to cache event state
+let evCache = [];
+let prevDiff = -1;
+
+function init() {
+// Install event handlers for the pointer target
+  const el = document.getElementById("zoomContainer");
+  el.onpointerdown = pointerdownHandler;
+  el.onpointermove = pointermoveHandler;
+  el.onpointerup = pointerupHandler;
+  el.onpointercancel = pointerupHandler;
+  el.onpointerout = pointerupHandler;
+  el.onpointerleave = pointerupHandler;
+}
+function pointerdownHandler(ev) {
+  evCache.push(ev);
+  console.log("pointerDown", ev);
+  console.log(evCache)
+}
+
+function pointermoveHandler(ev) {
+
+  console.log("pointerMove", ev);
+
+  // If two pointers are down, check for pinch gestures
+  if (evCache.length === 2) {
+    // Calculate the distance between the two pointers
+    const curDiff = Math.abs(evCache[0].clientX - evCache[1].clientX);
+console.log(curDiff)
+console.log(prevDiff)
+    if (prevDiff > 0) {
+      if (curDiff > 70) {
+        // The distance between the two pointers has increased
+        console.log("Pinch moving OUT -> Zoom in", ev);
+          zoomLevel += 0.1;
+        zoomContainer.style.zoom = zoomLevel;
+        tieify();
+      }
+      if (curDiff < prevDiff) {
+        // The distance between the two pointers has decreased
+        console.log("Pinch moving IN -> Zoom out", ev);
+          zoomLevel -= 0.1;
+  zoomContainer.style.zoom = zoomLevel;
+  tieify();
+      }
+    } 
+      prevDiff = curDiff;
+    
+
+    // Cache the distance for the next move event
+    
+  }
+}
+  
+function pointerupHandler(ev) {
+  prevDiff = -1;
+  evCache = []
+  console.log(evCache)
+}
+
+
+
+
+  
+const assets = document.querySelector('.assets')
+
+const zoomContainer = document.getElementById('zoomContainer');
+let zoomLevel = 1;
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  zoomLevel += 0.1;
+  zoomContainer.style.zoom = zoomLevel;
+  tieify();
+});
+
+document.getElementById('zoomOut').addEventListener('click', () => {
+  zoomLevel -= 0.1;
+  zoomContainer.style.zoom = zoomLevel;
+  tieify();
+
+});
+ 
+/*
+
+##  ###  #  # #  ##
+# # #   # # ### #
+##  ##  ### ###  #
+# # #   # # # #   #
+##  ### # # # # ##
+
+*/
+
+function drawLine(flag1, flagn, parent, isDown ) {
+  if (flag1 === undefined) return;
+  const rect1=flag1.getBoundingClientRect();
+  const rect2=flagn.getBoundingClientRect();
+  const parentRect = parent.getBoundingClientRect();
+
+  const svg = document.querySelector('.assets .lineContainer').cloneNode(true);
+  svg.id = Math.random();
+
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+
+  
+ const lineColor = getComputedStyle(document.documentElement).getPropertyValue('--line-color').trim();;
+  
+  if (!isDown) {
+    line.setAttribute('x1', (rect1.left) - parentRect.left);
+    line.setAttribute('y1', (rect1.top) - parentRect.top);
+    line.setAttribute('x2', (rect2.left) - parentRect.left);
+    line.setAttribute('y2', (rect2.top ) - parentRect.top);
+    
+    line.setAttribute('stroke', lineColor);
+    line.setAttribute('stroke-width', '10');
+  } else {
+    line.setAttribute('x1', (rect1.right) - parentRect.left);
+    line.setAttribute('y1', (rect1.bottom) - parentRect.top);
+    line.setAttribute('x2', (rect2.right) - parentRect.left);
+    line.setAttribute('y2', (rect2.bottom ) - parentRect.top);
+    
+    line.setAttribute('stroke', lineColor);
+    line.setAttribute('stroke-width', '20');
+  }
+  
+  svg.appendChild(line);
+  parent.appendChild(svg);
+
+  return line;
+}
+  
+function tieify() {
+  // Clear existing ties
+  const existingTies = document.querySelectorAll('.sheet .tieDiv');
+  existingTies.forEach(tie => tie.remove());
+
+  const tieStarts = document.querySelectorAll('.note.tie-start');
+  const tieStops = document.querySelectorAll('.note.tie-stop');
+
+  for (let i = 0; i < tieStarts.length && i < tieStops.length; i++) {
+    const start = tieStarts[i].getBoundingClientRect();
+    const stop = tieStops[i].getBoundingClientRect();
+
+    const tieDiv = document.createElement('div');
+    tieDiv.className = 'tieDiv';  // Add a class name for easy removal later
+    tieDiv.style.position = 'absolute';
+    tieDiv.style.height = '2em';
+
+    tieDiv.style.borderStyle = 'solid';
+    tieDiv.style.borderWidth = '0.5em';
+    tieDiv.style.borderColor = 'transparent transparent red transparent';
+    tieDiv.style.borderRadius = '0px 0px 100px 100px';
+    tieDiv.style.left = `${start.left + window.scrollX - 0}px`;
+    tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
+    tieDiv.style.width = `${stop.left - start.left}px`;
+
+    document.querySelector('.sheet').appendChild(tieDiv);
+  }
+}
+
+
+
+function beamify() {
+  const beamElements = document.querySelectorAll('.beam');
+  const stemXCoords = []; 
+
+  beamElements.forEach(beamGroup => {
+    const notes=beamGroup.querySelectorAll('.note');
+    const flags=beamGroup.querySelectorAll('.flag');
+    const stems=beamGroup.querySelectorAll('.stem');
+
+    const beamRect = beamGroup.getBoundingClientRect();
+
+    const firstFlag = flags[0];
+    const lastFlag = flags[flags.length - 1];
+
+    let svg;
+
+    let containsDown = false;
+    notes.forEach(note => {
+      if (note.classList.contains("stem-down")) {
+        containsDown = true;
+      }
+    });
+
+    if (firstFlag && lastFlag) {
+      svg = drawLine(firstFlag, lastFlag, beamGroup, containsDown);
+    }
+
+    // Remove flags
+    flags.forEach(flag => {
+      flag.remove();
+    });
+
+    const line = beamGroup.querySelector('line');
+    if (line == null) return;
+    // console.log(line);
+    const lineY1 = parseFloat(line.getAttribute('y1'));
+    const lineY2 = parseFloat(line.getAttribute('y2'));
+    const lineX1 = parseFloat(line.getAttribute('x1'));
+    const lineX2 = parseFloat(line.getAttribute('x2'));
+
+    const lineSlope = (lineY2 - lineY1) / (lineX2 - lineX1);
+
+    notes.forEach(note => {
+      const stems = note.querySelector('.stem');
+      const rect = stems.getBoundingClientRect();
+      const xCoord = rect.left - beamRect.left;
+      stemXCoords.push(xCoord);
+
+      const lineYAtX = lineY1 + lineSlope * (xCoord - lineX1);
+
+      const difference = (rect.bottom - beamRect.top) - lineYAtX;
+
+      if (difference < 0) {
+        const newLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        newLine.setAttribute('x1', xCoord);
+        newLine.setAttribute('y1', rect.bottom - beamRect.top);
+        newLine.setAttribute('x2', xCoord);
+        newLine.setAttribute('y2', lineYAtX);
+        newLine.setAttribute('stroke', 'red');
+        newLine.setAttribute('stroke-width', '20');
+        beamGroup.querySelector('svg').appendChild(newLine);
+      }
+    });
+
+  });
+}
+
+// # # # #  ## ###  ##     # # # # #
+// ### # # #    #  #       # # ### #
+// ### # #  #   #  #   ###  #  ### #
+// # # # #   #  #  #       # # # # #
+// # # ### ##  ###  ##     # # # # ###
+function populateStaffFromMusicXML(xmlDoc) {
+  const measures = xmlDoc.getElementsByTagName("measure");
+  let prevStaffBlock = null;
+  console.log(measures.length);
+
+  for (let i = 0; i < measures.length; i++) {
+    console.log('*********',`${i}/${measures.length}`);
+
+    const measureDiv = document.querySelector('.assets .measure').cloneNode(true);
+    
+    let beamDiv = null;
+    const notes = measures[i].getElementsByTagName("note");
+    for (let j = 0; j < notes.length; j++) {
+      const isChord = notes[j].getElementsByTagName("chord")[0];
+      const stepElement = notes[j].getElementsByTagName("step")[0];
+      const octaveElement = notes[j].getElementsByTagName("octave")[0];
+      const typeElement = notes[j].getElementsByTagName("type")[0];
+      const stemElement = notes[j].getElementsByTagName("stem")[0];
+      const beamElement = notes[j].getElementsByTagName("beam")[0];
+      const tiedElement = notes[j].getElementsByTagName("tied")[0];
+  
+      if (stepElement && octaveElement && typeElement) {
+        const step = stepElement.textContent.toLowerCase();
+        const octave = octaveElement.textContent;
+        const noteType = typeElement.textContent;
+        const musicNote = `${step}${octave}`;
+        
+        let staffBlock;
+        if (isChord) {
+          console.log("plot On staff")
+          staffBlock = plotStaffBlock(prevStaffBlock, musicNote, noteType);
+        } else {
+          console.log("gen new staff")
+
+          staffBlock = genStaffBlock(musicNote, noteType);
+        }
+        // console.log(staffBlock);
+        if (staffBlock instanceof Node) { // Check if it's a DOM Node
+        const noteDiv = staffBlock.querySelector('.note');
+          if (stemElement) {
+            const stemDirection = stemElement.textContent;
+            
+            if (noteDiv) {
+              noteDiv.classList.add(`stem-${stemDirection}`);
+            }
+          }
+
+          if (tiedElement) {
+            const number = tiedElement.getAttribute('number');
+            const orientation = tiedElement.getAttribute('orientation');
+            const type = tiedElement.getAttribute('type');
+
+            if (number === '1') {
+              noteDiv.classList.add(`tie-${type}`)
+              noteDiv.classList.add(`tie-${orientation}`);
+            }
+          }
+  
+          if (beamElement) {
+            const beamType = beamElement.textContent;
+            if (beamType === "begin") {
+              beamDiv = document.querySelector('.assets .beam').cloneNode(true);
+            }
+            if (beamDiv && beamDiv instanceof Node) { // Check if it's a DOM Node
+              beamDiv.appendChild(staffBlock);
+            }
+            if (beamType === "end" && beamDiv) {
+              measureDiv.appendChild(beamDiv);
+              beamDiv = null; 
+            }
+          } else {
+            if (beamDiv && beamDiv instanceof Node) { // Check if it's a DOM Node
+              measureDiv.appendChild(beamDiv);
+              beamDiv = null;
+            }
+            if (!isChord) {
+              measureDiv.appendChild(staffBlock);
+            }
+          }
+          if (!isChord) {
+            prevStaffBlock = staffBlock;
+          }
+        }
+      }
+    }
+    document.querySelector('.sheet').appendChild(measureDiv);
+  }
+  beamify();
+  tieify();
+}
+
+
+//  ## ###  #  ### ### ##  #    #   ## # #
+// #    #  # # #   #   # # #   # # #   # #
+//  #   #  ### ##  ##  ##  #   # # #   ##
+//   #  #  # # #   #   # # #   # # #   # #
+// ##   #  # # #   #   ##  ###  #   ## # #
+
+function genStaffBlock(pitchSpace='e4', noteType='quarter') {
+  const staffClone = assets.querySelector('.staff').cloneNode(true);
+  const noteClone = assets.querySelector('.note').cloneNode(true);
+  noteClone.id = Math.random();
+  noteClone.classList.add(noteType);
+
+  const plotSpace = staffClone.querySelector(`.${pitchSpace}`)
+  if (plotSpace == null) return;
+  plotSpace.appendChild(noteClone);
+  return staffClone;
+}
+
+function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
+  
+  const noteClone = assets.querySelector('.note').cloneNode(true);
+  noteClone.id = Math.random();
+  noteClone.classList.add(noteType);
+  
+  const plotSpace = existingStaffBlock.querySelector(`.${pitchSpace}`);
+  console.log("--------------------------------")
+
+  console.log(existingStaffBlock)
+  console.log(noteClone)
+  console.log(plotSpace)
+  if (plotSpace == null) return;
+  plotSpace.appendChild(noteClone);
+  return existingStaffBlock;
+}
+
+
+/*
+### # # ### ### ###  ##
+#   # # #   # #  #  #
+##  # # ##  # #  #   #
+#   # # #   # #  #    #
+###  #  ### # #  #  ##
+*/
+
+function fileHandler(event) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const parser = new DOMParser();
+    const xmlDoc = parser
+      .parseFromString(reader.result,"text/xml");
+    populateStaffFromMusicXML(xmlDoc);
+  }
+  console.log(event.target.files[0])
+  reader.readAsText(event.target.files[0]);
+}
+
+function showMenu(e) {
+  const clickedStaff = e.target.closest('.staff');
+  clickedStaff.append(document.querySelector('.menu'));
+}
+
+function dragstartHandler(e){
+  const note = e.target;
+  e.dataTransfer.setData('text/plain', note.id);
+  const dragImage = note.cloneNode(true);
+  const dragImageContainer = document.createElement('div');
+  dragImageContainer.appendChild(dragImage);
+  dragImageContainer.style.position = 'absolute';
+  dragImageContainer.style.top = '-9999px';
+  document.body.appendChild(dragImageContainer);
+  e.dataTransfer.setDragImage(dragImageContainer, 20, 99);
+}
+
+function dragHandler(e) {
+  e.preventDefault();
+  const dragzone = e.target.closest('div');
+  if (e.type === 'dragover') {
+    dragzone.style.backgroundColor = 'red';
+    // messageArea.innerText = dragzone.id;
+  } else if (e.type === 'dragleave') {
+    dragzone.style.backgroundColor = '';
+    // messageArea.innerText = '';
+  }
+}
+
+function dropHandler(e){
+  e.preventDefault();
+  const dropzone = e.target.closest('div'); 
+  if (dropzone == null) return;
+  const noteId = e.dataTransfer.getData('text');
+  const draggedNote = document.getElementById(noteId)
+  const noteClone = draggedNote.cloneNode(true);
+  noteClone.id = Math.random();
+  dropzone.style.backgroundColor = '';
+  dropzone.appendChild(noteClone);
+  if (draggedNote.parentNode) {
+    draggedNote.parentNode.removeChild(draggedNote);
+  }
+}
+
+function addStaffBlock(pitchSpace='e4',noteType='quarter') {
+  const staffClone = assets.querySelector('.staff').cloneNode(true);
+  const noteClone = assets.querySelector('.note').cloneNode(true);
+  noteClone.id = Math.random();
+  noteClone.classList.add(noteType);
+
+  // console.log(pitchSpace)
+
+  const plotSpace = staffClone.querySelector(`.${pitchSpace}`)
+  if (plotSpace == null) return;
+  plotSpace.appendChild(noteClone);
+  document.querySelector('.sheet')
+  .appendChild(staffClone);
+}
+</script>
+</html>
