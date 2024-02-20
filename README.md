@@ -1,2 +1,2 @@
-(Try me)[bryandebourbon.github.io/emusicreader]
+[try me](http://www.bryandebourbon.com/eMusicReader/)
 
