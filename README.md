@@ -13,3 +13,6 @@ https://htmlpreview.github.io/?https://raw.githubusercontent.com/<USER>/<REPO>/<
 Replace `<USER>`, `<REPO>` and `<BRANCH>` with the appropriate values to get a
 clickable link for testing a pull request.
 
+All pull request descriptions will include this link automatically with the
+correct branch name, making it easy to preview changes directly from the PR.
+
