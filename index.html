@@ -62,7 +62,7 @@ listening for notes and plotting them
   --flag-height: 0.83em;
   --flag-width: 0.3em;
 
-  --tie-thickness:0;
+  --tie-thickness:0.5em;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -619,21 +619,30 @@ function tieify() {
       tieDiv.style.height = '2em';
 
       tieDiv.style.borderStyle = 'solid';
-      tieDiv.style.borderWidth = '0.5em';
-
+      const tieThickness = getComputedStyle(document.documentElement)
+        .getPropertyValue('--tie-thickness').trim() || '0.5em';
+      tieDiv.style.borderWidth = tieThickness;
+      
       const orientation = startNote.classList.contains('tie-under') ? 'under' : 'over';
+
+      const tieColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--tie-color').trim();
+
       if (orientation === 'under') {
-        tieDiv.style.borderColor = 'red transparent transparent transparent';
+        tieDiv.style.borderColor = `${tieColor} transparent transparent transparent`;
         tieDiv.style.borderRadius = '100px 100px 0px 0px';
         tieDiv.style.top = `${start.bottom + window.scrollY - 10}px`;
       } else {
-        tieDiv.style.borderColor = 'transparent transparent red transparent';
+        tieDiv.style.borderColor = `transparent transparent ${tieColor} transparent`;
         tieDiv.style.borderRadius = '0px 0px 100px 100px';
         tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
       }
       tieDiv.style.left = `${start.left + window.scrollX}px`;
 
       tieDiv.style.width = `${stop.left - start.left}px`;
+
+      tieDiv.style.pointerEvents = 'none';
+      tieDiv.style.zIndex = '1';
 
       document.querySelector('.sheet').appendChild(tieDiv);
     }
@@ -726,6 +735,7 @@ function appendMeasureNotes(measure, measureDiv) {
     const stemElement = notes[j].getElementsByTagName("stem")[0];
     const beamElement = notes[j].getElementsByTagName("beam")[0];
     const tiedElements = notes[j].getElementsByTagName("tied");
+    const tieElements = notes[j].getElementsByTagName("tie");
 
     if (stepElement && octaveElement && typeElement) {
       const step = stepElement.textContent.toLowerCase();
@@ -749,9 +759,10 @@ function appendMeasureNotes(measure, measureDiv) {
           }
         }
 
-        if (tiedElements && tiedElements.length) {
-          for (let t = 0; t < tiedElements.length; t++) {
-            const tie = tiedElements[t];
+        const allTies = [...tiedElements, ...tieElements];
+        if (allTies.length) {
+          for (let t = 0; t < allTies.length; t++) {
+            const tie = allTies[t];
             const number = tie.getAttribute('number') || '1';
             const orientation = tie.getAttribute('orientation');
             const type = tie.getAttribute('type');
