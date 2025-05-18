@@ -48,6 +48,7 @@ listening for notes and plotting them
   --line-color: black;
   --note-color: black;
   --tie-color: red;
+  --slur-color: blue;
 
   --staff-width: 1.6em;
   --space-height: 1em;
@@ -481,6 +482,7 @@ console.log(prevDiff)
           zoomLevel += 0.1;
         zoomContainer.style.zoom = zoomLevel;
         tieify();
+        slurify();
       }
       if (curDiff < prevDiff) {
         // The distance between the two pointers has decreased
@@ -488,6 +490,7 @@ console.log(prevDiff)
           zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
   tieify();
+  slurify();
       }
     } 
       prevDiff = curDiff;
@@ -517,12 +520,14 @@ document.getElementById('zoomIn').addEventListener('click', () => {
   zoomLevel += 0.1;
   zoomContainer.style.zoom = zoomLevel;
   tieify();
+  slurify();
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
   zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
   tieify();
+  slurify();
 
 });
 
@@ -640,6 +645,58 @@ function tieify() {
   });
 }
 
+function slurify() {
+  const existingSlurs = document.querySelectorAll('.sheet .slurDiv');
+  existingSlurs.forEach(slur => slur.remove());
+
+  const notes = document.querySelectorAll('.sheet .note');
+  const slurPairs = {};
+
+  notes.forEach(note => {
+    Array.from(note.attributes).forEach(attr => {
+      if (attr.name.startsWith('data-slur')) {
+        const number = attr.name.replace('data-slur', '');
+        const type = attr.value;
+        if (!slurPairs[number]) slurPairs[number] = { start: [], stop: [] };
+        slurPairs[number][type].push(note);
+      }
+    });
+  });
+
+  Object.values(slurPairs).forEach(pair => {
+    const count = Math.min(pair.start.length, pair.stop.length);
+    for (let i = 0; i < count; i++) {
+      const startNote = pair.start[i];
+      const stopNote = pair.stop[i];
+      const start = startNote.getBoundingClientRect();
+      const stop = stopNote.getBoundingClientRect();
+
+      const slurDiv = document.createElement('div');
+      slurDiv.className = 'slurDiv';
+      slurDiv.style.position = 'absolute';
+      slurDiv.style.height = '2em';
+
+      slurDiv.style.borderStyle = 'solid';
+      slurDiv.style.borderWidth = '0.5em';
+
+      const orientation = startNote.classList.contains('slur-under') ? 'under' : 'over';
+      if (orientation === 'under') {
+        slurDiv.style.borderColor = `var(--slur-color) transparent transparent transparent`;
+        slurDiv.style.borderRadius = '100px 100px 0px 0px';
+        slurDiv.style.top = `${start.bottom + window.scrollY - 10}px`;
+      } else {
+        slurDiv.style.borderColor = `transparent transparent var(--slur-color) transparent`;
+        slurDiv.style.borderRadius = '0px 0px 100px 100px';
+        slurDiv.style.top = `${start.top + window.scrollY - 30}px`;
+      }
+      slurDiv.style.left = `${start.left + window.scrollX}px`;
+      slurDiv.style.width = `${stop.left - start.left}px`;
+
+      document.querySelector('.sheet').appendChild(slurDiv);
+    }
+  });
+}
+
 
 
 function beamify() {
@@ -726,6 +783,7 @@ function appendMeasureNotes(measure, measureDiv) {
     const stemElement = notes[j].getElementsByTagName("stem")[0];
     const beamElement = notes[j].getElementsByTagName("beam")[0];
     const tiedElements = notes[j].getElementsByTagName("tied");
+    const slurElements = notes[j].getElementsByTagName("slur");
 
     if (stepElement && octaveElement && typeElement) {
       const step = stepElement.textContent.toLowerCase();
@@ -759,6 +817,20 @@ function appendMeasureNotes(measure, measureDiv) {
             noteDiv.dataset[`tie${number}`] = type;
             if (orientation) {
               noteDiv.classList.add(`tie-${orientation}`);
+            }
+          }
+        }
+
+        if (slurElements && slurElements.length) {
+          for (let s = 0; s < slurElements.length; s++) {
+            const slur = slurElements[s];
+            const number = slur.getAttribute('number') || '1';
+            const orientation = slur.getAttribute('orientation');
+            const type = slur.getAttribute('type');
+
+            noteDiv.dataset[`slur${number}`] = type;
+            if (orientation) {
+              noteDiv.classList.add(`slur-${orientation}`);
             }
           }
         }
@@ -813,6 +885,7 @@ function populateStaffFromMusicXML(xmlDoc) {
   }
   beamify();
   tieify();
+  slurify();
 }
 
 
@@ -926,7 +999,10 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   .appendChild(staffClone);
 }
 
-// Recalculate ties whenever layout changes
-window.addEventListener('resize', tieify);
+// Recalculate ties and slurs whenever layout changes
+window.addEventListener('resize', () => {
+  tieify();
+  slurify();
+});
 </script>
 </html>
