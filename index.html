@@ -632,6 +632,7 @@ function tieify() {
         tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
       }
       tieDiv.style.left = `${start.left + window.scrollX}px`;
+
       tieDiv.style.width = `${stop.left - start.left}px`;
 
       document.querySelector('.sheet').appendChild(tieDiv);
