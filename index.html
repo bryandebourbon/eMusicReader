@@ -812,7 +812,8 @@ function populateStaffFromMusicXML(xmlDoc) {
     sheet.appendChild(measureDiv);
   }
   beamify();
-  tieify();
+  // Defer tie calculation until layout has stabilized
+  requestAnimationFrame(tieify);
 }
 
 
@@ -924,6 +925,8 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   plotSpace.appendChild(noteClone);
   document.querySelector('.sheet')
   .appendChild(staffClone);
+  // Update ties when new staff blocks are added
+  tieify();
 }
 
 // Recalculate ties whenever layout changes
