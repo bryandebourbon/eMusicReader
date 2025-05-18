@@ -591,7 +591,10 @@ function tieify() {
   const existingTies = document.querySelectorAll('.sheet .tieDiv');
   existingTies.forEach(tie => tie.remove());
 
-  const notes = document.querySelectorAll('.sheet .note');
+  const sheet = document.querySelector('.sheet');
+  const sheetRect = sheet.getBoundingClientRect();
+
+  const notes = sheet.querySelectorAll('.note');
   const tiePairs = {};
 
   notes.forEach(note => {
@@ -625,17 +628,17 @@ function tieify() {
       if (orientation === 'under') {
         tieDiv.style.borderColor = 'red transparent transparent transparent';
         tieDiv.style.borderRadius = '100px 100px 0px 0px';
-        tieDiv.style.top = `${start.bottom + window.scrollY - 10}px`;
+        tieDiv.style.top = `${start.bottom - sheetRect.top - 10}px`;
       } else {
         tieDiv.style.borderColor = 'transparent transparent red transparent';
         tieDiv.style.borderRadius = '0px 0px 100px 100px';
-        tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
+        tieDiv.style.top = `${start.top - sheetRect.top - 30}px`;
       }
-      tieDiv.style.left = `${start.left + window.scrollX}px`;
+      tieDiv.style.left = `${start.left - sheetRect.left}px`;
 
       tieDiv.style.width = `${stop.left - start.left}px`;
 
-      document.querySelector('.sheet').appendChild(tieDiv);
+      sheet.appendChild(tieDiv);
     }
   });
 }
@@ -812,7 +815,8 @@ function populateStaffFromMusicXML(xmlDoc) {
     sheet.appendChild(measureDiv);
   }
   beamify();
-  tieify();
+  // Defer tie calculation until layout has stabilized
+  requestAnimationFrame(() => requestAnimationFrame(tieify));
 }
 
 
@@ -924,6 +928,8 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   plotSpace.appendChild(noteClone);
   document.querySelector('.sheet')
   .appendChild(staffClone);
+  // Update ties when new staff blocks are added
+  requestAnimationFrame(() => requestAnimationFrame(tieify));
 }
 
 // Recalculate ties whenever layout changes
