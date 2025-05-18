@@ -714,95 +714,102 @@ function beamify() {
 // ### # #  #   #  #   ###  #  ### #
 // # # # #   #  #  #       # # # # #
 // # # ### ##  ###  ##     # # # # ###
-function populateStaffFromMusicXML(xmlDoc) {
-  const measures = xmlDoc.getElementsByTagName("measure");
+function appendMeasureNotes(measure, measureDiv) {
+  let beamDiv = null;
   let prevStaffBlock = null;
-  console.log(measures.length);
+  const notes = measure.getElementsByTagName("note");
+  for (let j = 0; j < notes.length; j++) {
+    const isChord = notes[j].getElementsByTagName("chord")[0];
+    const stepElement = notes[j].getElementsByTagName("step")[0];
+    const octaveElement = notes[j].getElementsByTagName("octave")[0];
+    const typeElement = notes[j].getElementsByTagName("type")[0];
+    const stemElement = notes[j].getElementsByTagName("stem")[0];
+    const beamElement = notes[j].getElementsByTagName("beam")[0];
+    const tiedElements = notes[j].getElementsByTagName("tied");
 
-  for (let i = 0; i < measures.length; i++) {
-    console.log('*********',`${i}/${measures.length}`);
+    if (stepElement && octaveElement && typeElement) {
+      const step = stepElement.textContent.toLowerCase();
+      const octave = octaveElement.textContent;
+      const noteType = typeElement.textContent;
+      const musicNote = `${step}${octave}`;
 
-    const measureDiv = document.querySelector('.assets .measure').cloneNode(true);
-    
-    let beamDiv = null;
-    const notes = measures[i].getElementsByTagName("note");
-    for (let j = 0; j < notes.length; j++) {
-      const isChord = notes[j].getElementsByTagName("chord")[0];
-      const stepElement = notes[j].getElementsByTagName("step")[0];
-      const octaveElement = notes[j].getElementsByTagName("octave")[0];
-      const typeElement = notes[j].getElementsByTagName("type")[0];
-      const stemElement = notes[j].getElementsByTagName("stem")[0];
-      const beamElement = notes[j].getElementsByTagName("beam")[0];
-      const tiedElements = notes[j].getElementsByTagName("tied");
-  
-      if (stepElement && octaveElement && typeElement) {
-        const step = stepElement.textContent.toLowerCase();
-        const octave = octaveElement.textContent;
-        const noteType = typeElement.textContent;
-        const musicNote = `${step}${octave}`;
-        
-        let staffBlock;
-        if (isChord) {
-          console.log("plot On staff")
-          staffBlock = plotStaffBlock(prevStaffBlock, musicNote, noteType);
-        } else {
-          console.log("gen new staff")
+      let staffBlock;
+      if (isChord) {
+        staffBlock = plotStaffBlock(prevStaffBlock, musicNote, noteType);
+      } else {
+        staffBlock = genStaffBlock(musicNote, noteType);
+      }
 
-          staffBlock = genStaffBlock(musicNote, noteType);
-        }
-        // console.log(staffBlock);
-        if (staffBlock instanceof Node) { // Check if it's a DOM Node
+      if (staffBlock instanceof Node) {
         const noteDiv = staffBlock.querySelector('.note');
-          if (stemElement) {
-            const stemDirection = stemElement.textContent;
-            
-            if (noteDiv) {
-              noteDiv.classList.add(`stem-${stemDirection}`);
+        if (stemElement) {
+          const stemDirection = stemElement.textContent;
+          if (noteDiv) {
+            noteDiv.classList.add(`stem-${stemDirection}`);
+          }
+        }
+
+        if (tiedElements && tiedElements.length) {
+          for (let t = 0; t < tiedElements.length; t++) {
+            const tie = tiedElements[t];
+            const number = tie.getAttribute('number') || '1';
+            const orientation = tie.getAttribute('orientation');
+            const type = tie.getAttribute('type');
+
+            noteDiv.dataset[`tie${number}`] = type;
+            if (orientation) {
+              noteDiv.classList.add(`tie-${orientation}`);
             }
           }
+        }
 
-          if (tiedElements && tiedElements.length) {
-            for (let t = 0; t < tiedElements.length; t++) {
-              const tie = tiedElements[t];
-              const number = tie.getAttribute('number') || '1';
-              const orientation = tie.getAttribute('orientation');
-              const type = tie.getAttribute('type');
-
-              noteDiv.dataset[`tie${number}`] = type; // start or stop
-              if (orientation) {
-                noteDiv.classList.add(`tie-${orientation}`);
-              }
-            }
+        if (beamElement) {
+          const beamType = beamElement.textContent;
+          if (beamType === "begin") {
+            beamDiv = document.querySelector('.assets .beam').cloneNode(true);
           }
-  
-          if (beamElement) {
-            const beamType = beamElement.textContent;
-            if (beamType === "begin") {
-              beamDiv = document.querySelector('.assets .beam').cloneNode(true);
-            }
-            if (beamDiv && beamDiv instanceof Node) { // Check if it's a DOM Node
-              beamDiv.appendChild(staffBlock);
-            }
-            if (beamType === "end" && beamDiv) {
-              measureDiv.appendChild(beamDiv);
-              beamDiv = null; 
-            }
-          } else {
-            if (beamDiv && beamDiv instanceof Node) { // Check if it's a DOM Node
-              measureDiv.appendChild(beamDiv);
-              beamDiv = null;
-            }
-            if (!isChord) {
-              measureDiv.appendChild(staffBlock);
-            }
+          if (beamDiv && beamDiv instanceof Node) {
+            beamDiv.appendChild(staffBlock);
+          }
+          if (beamType === "end" && beamDiv) {
+            measureDiv.appendChild(beamDiv);
+            beamDiv = null;
+          }
+        } else {
+          if (beamDiv && beamDiv instanceof Node) {
+            measureDiv.appendChild(beamDiv);
+            beamDiv = null;
           }
           if (!isChord) {
-            prevStaffBlock = staffBlock;
+            measureDiv.appendChild(staffBlock);
           }
+        }
+        if (!isChord) {
+          prevStaffBlock = staffBlock;
         }
       }
     }
-    document.querySelector('.sheet').appendChild(measureDiv);
+  }
+  return measureDiv;
+}
+
+function populateStaffFromMusicXML(xmlDoc) {
+  const parts = xmlDoc.getElementsByTagName("part");
+  const sheet = document.querySelector('.sheet');
+
+  const measuresByPart = Array.from(parts).map(p => p.getElementsByTagName("measure"));
+  const maxMeasures = Math.max(...measuresByPart.map(m => m.length));
+
+  for (let i = 0; i < maxMeasures; i++) {
+    let measureDiv = document.querySelector('.assets .measure').cloneNode(true);
+
+    for (let p = 0; p < measuresByPart.length; p++) {
+      const measure = measuresByPart[p][i];
+      if (!measure) continue;
+      measureDiv = appendMeasureNotes(measure, measureDiv);
+    }
+
+    sheet.appendChild(measureDiv);
   }
   beamify();
   tieify();
@@ -828,17 +835,12 @@ function genStaffBlock(pitchSpace='e4', noteType='quarter') {
 }
 
 function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
-  
+
   const noteClone = assets.querySelector('.note').cloneNode(true);
   noteClone.id = Math.random();
   noteClone.classList.add(noteType);
-  
-  const plotSpace = existingStaffBlock.querySelector(`.${pitchSpace}`);
-  console.log("--------------------------------")
 
-  console.log(existingStaffBlock)
-  console.log(noteClone)
-  console.log(plotSpace)
+  const plotSpace = existingStaffBlock.querySelector(`.${pitchSpace}`);
   if (plotSpace == null) return;
   plotSpace.appendChild(noteClone);
   return existingStaffBlock;
