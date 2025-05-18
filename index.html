@@ -379,6 +379,7 @@ svg {
   <button id="zoomIn">+</button>
   <button id="zoomOut">-</button>
   <button id="refreshTies">Refresh Ties</button>
+  <button id="renderBeams">Render Beams</button>
 </div>
 
 <section class="assets"style="display:none;">
@@ -531,6 +532,13 @@ document.getElementById('refreshTies').addEventListener('click', () => {
   tieify();
 });
 
+document.getElementById('renderBeams').addEventListener('click', () => {
+  requestAnimationFrame(() => {
+    beamify();
+    tieify();
+  });
+});
+
 document.getElementById('useDefaultFile').addEventListener('click', function() {
   fetch('ddd.xml') // Adjust the path if your XML file is in a specific directory
     .then(response => response.text())
@@ -538,7 +546,6 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data,"text/xml");
       populateStaffFromMusicXML(xmlDoc);
-      requestAnimationFrame(tieify);
     })
     .catch(error => console.error('Error loading the default file:', error));
 });
@@ -817,9 +824,11 @@ function populateStaffFromMusicXML(xmlDoc) {
 
     sheet.appendChild(measureDiv);
   }
-  beamify();
-  // Ensure layout is calculated before drawing ties
-  requestAnimationFrame(tieify);
+  // Ensure layout is calculated before drawing beams and ties
+  requestAnimationFrame(() => {
+    beamify();
+    tieify();
+  });
 }
 
 
