@@ -1,6 +1,8 @@
 Instructions
------------
-- Include the following HTML preview link in every pull request description **after** the branch has been created:
-  https://htmlpreview.github.io/?https://raw.githubusercontent.com/bryandebourbon/eMusicReader/codex/<branch>/index.html
-  Replace `<branch>` with the actual branch name Codex generates for the PR.
-  Wait until that name is available so the link contains the correct branch instead of a blank placeholder.
+------------
+- After creating the PR, include the HTML preview link below in the description.
+- The link must point to the branch name returned by `container.make_pr` (e.g. `codex/add-ties-and-slurs-back-kvbg0h`).
+- Example format:
+  https://htmlpreview.github.io/?https://raw.githubusercontent.com/bryandebourbon/eMusicReader/<branch>/index.html
+  Replace `<branch>` with that final PR branch. Do **not** use the local `work` branch name.
+- Wait until the branch name is known so the link contains the correct path.
