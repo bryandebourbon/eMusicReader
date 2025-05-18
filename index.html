@@ -533,6 +533,8 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data,"text/xml");
       populateStaffFromMusicXML(xmlDoc);
+      // Delay tie drawing to ensure layout is ready
+      setTimeout(() => requestAnimationFrame(tieify), 100);
     })
     .catch(error => console.error('Error loading the default file:', error));
 });
@@ -812,7 +814,9 @@ function populateStaffFromMusicXML(xmlDoc) {
     sheet.appendChild(measureDiv);
   }
   beamify();
-  tieify();
+  // Ensure layout is calculated before drawing ties
+  // Wait a bit so DOM measurements are correct
+  setTimeout(() => requestAnimationFrame(tieify), 100);
 }
 
 
@@ -862,6 +866,8 @@ function fileHandler(event) {
     const xmlDoc = parser
       .parseFromString(reader.result,"text/xml");
     populateStaffFromMusicXML(xmlDoc);
+    // Render ties after new file loads
+    setTimeout(() => requestAnimationFrame(tieify), 100);
   }
   console.log(event.target.files[0])
   reader.readAsText(event.target.files[0]);
