@@ -812,7 +812,8 @@ function populateStaffFromMusicXML(xmlDoc) {
     sheet.appendChild(measureDiv);
   }
   beamify();
-  tieify();
+  // Ensure layout is calculated before drawing ties
+  requestAnimationFrame(tieify);
 }
 
 
