@@ -620,10 +620,19 @@ function tieify() {
 
       tieDiv.style.borderStyle = 'solid';
       tieDiv.style.borderWidth = '0.5em';
-      tieDiv.style.borderColor = 'transparent transparent red transparent';
-      tieDiv.style.borderRadius = '0px 0px 100px 100px';
+
+      const orientation = startNote.classList.contains('tie-under') ? 'under' : 'over';
+      if (orientation === 'under') {
+        tieDiv.style.borderColor = 'red transparent transparent transparent';
+        tieDiv.style.borderRadius = '100px 100px 0px 0px';
+        tieDiv.style.top = `${start.bottom + window.scrollY - 10}px`;
+      } else {
+        tieDiv.style.borderColor = 'transparent transparent red transparent';
+        tieDiv.style.borderRadius = '0px 0px 100px 100px';
+        tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
+      }
       tieDiv.style.left = `${start.left + window.scrollX}px`;
-      tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
+
       tieDiv.style.width = `${stop.left - start.left}px`;
 
       document.querySelector('.sheet').appendChild(tieDiv);
@@ -914,5 +923,8 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   document.querySelector('.sheet')
   .appendChild(staffClone);
 }
+
+// Recalculate ties whenever layout changes
+window.addEventListener('resize', tieify);
 </script>
 </html>
