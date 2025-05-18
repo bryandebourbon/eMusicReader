@@ -538,7 +538,6 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data,"text/xml");
       populateStaffFromMusicXML(xmlDoc);
-      requestAnimationFrame(tieify);
     })
     .catch(error => console.error('Error loading the default file:', error));
 });
@@ -817,9 +816,11 @@ function populateStaffFromMusicXML(xmlDoc) {
 
     sheet.appendChild(measureDiv);
   }
-  beamify();
-  // Ensure layout is calculated before drawing ties
-  requestAnimationFrame(tieify);
+  // Ensure layout is calculated before drawing beams and ties
+  requestAnimationFrame(() => {
+    beamify();
+    tieify();
+  });
 }
 
 
