@@ -591,28 +591,44 @@ function tieify() {
   const existingTies = document.querySelectorAll('.sheet .tieDiv');
   existingTies.forEach(tie => tie.remove());
 
-  const tieStarts = document.querySelectorAll('.note.tie-start');
-  const tieStops = document.querySelectorAll('.note.tie-stop');
+  const notes = document.querySelectorAll('.sheet .note');
+  const tiePairs = {};
 
-  for (let i = 0; i < tieStarts.length && i < tieStops.length; i++) {
-    const start = tieStarts[i].getBoundingClientRect();
-    const stop = tieStops[i].getBoundingClientRect();
+  notes.forEach(note => {
+    Array.from(note.attributes).forEach(attr => {
+      if (attr.name.startsWith('data-tie')) {
+        const number = attr.name.replace('data-tie', '');
+        const type = attr.value;
+        if (!tiePairs[number]) tiePairs[number] = { start: [], stop: [] };
+        tiePairs[number][type].push(note);
+      }
+    });
+  });
 
-    const tieDiv = document.createElement('div');
-    tieDiv.className = 'tieDiv';  // Add a class name for easy removal later
-    tieDiv.style.position = 'absolute';
-    tieDiv.style.height = '2em';
+  Object.values(tiePairs).forEach(pair => {
+    const count = Math.min(pair.start.length, pair.stop.length);
+    for (let i = 0; i < count; i++) {
+      const startNote = pair.start[i];
+      const stopNote = pair.stop[i];
+      const start = startNote.getBoundingClientRect();
+      const stop = stopNote.getBoundingClientRect();
 
-    tieDiv.style.borderStyle = 'solid';
-    tieDiv.style.borderWidth = '0.5em';
-    tieDiv.style.borderColor = 'transparent transparent red transparent';
-    tieDiv.style.borderRadius = '0px 0px 100px 100px';
-    tieDiv.style.left = `${start.left + window.scrollX - 0}px`;
-    tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
-    tieDiv.style.width = `${stop.left - start.left}px`;
+      const tieDiv = document.createElement('div');
+      tieDiv.className = 'tieDiv'; // Add a class name for easy removal later
+      tieDiv.style.position = 'absolute';
+      tieDiv.style.height = '2em';
 
-    document.querySelector('.sheet').appendChild(tieDiv);
-  }
+      tieDiv.style.borderStyle = 'solid';
+      tieDiv.style.borderWidth = '0.5em';
+      tieDiv.style.borderColor = 'transparent transparent red transparent';
+      tieDiv.style.borderRadius = '0px 0px 100px 100px';
+      tieDiv.style.left = `${start.left + window.scrollX}px`;
+      tieDiv.style.top = `${start.top + window.scrollY - 30}px`;
+      tieDiv.style.width = `${stop.left - start.left}px`;
+
+      document.querySelector('.sheet').appendChild(tieDiv);
+    }
+  });
 }
 
 
@@ -708,7 +724,7 @@ function populateStaffFromMusicXML(xmlDoc) {
       const typeElement = notes[j].getElementsByTagName("type")[0];
       const stemElement = notes[j].getElementsByTagName("stem")[0];
       const beamElement = notes[j].getElementsByTagName("beam")[0];
-      const tiedElement = notes[j].getElementsByTagName("tied")[0];
+      const tiedElements = notes[j].getElementsByTagName("tied");
   
       if (stepElement && octaveElement && typeElement) {
         const step = stepElement.textContent.toLowerCase();
@@ -736,14 +752,17 @@ function populateStaffFromMusicXML(xmlDoc) {
             }
           }
 
-          if (tiedElement) {
-            const number = tiedElement.getAttribute('number');
-            const orientation = tiedElement.getAttribute('orientation');
-            const type = tiedElement.getAttribute('type');
+          if (tiedElements && tiedElements.length) {
+            for (let t = 0; t < tiedElements.length; t++) {
+              const tie = tiedElements[t];
+              const number = tie.getAttribute('number') || '1';
+              const orientation = tie.getAttribute('orientation');
+              const type = tie.getAttribute('type');
 
-            if (number === '1') {
-              noteDiv.classList.add(`tie-${type}`)
-              noteDiv.classList.add(`tie-${orientation}`);
+              noteDiv.dataset[`tie${number}`] = type; // start or stop
+              if (orientation) {
+                noteDiv.classList.add(`tie-${orientation}`);
+              }
             }
           }
   
