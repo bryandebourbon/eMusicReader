@@ -107,9 +107,34 @@ svg {
   position: fixed;
   bottom: 0;
   right: 0;
-	width:600;
+        width:600;
   height:300;
   display: flex;
+}
+#settingsModal.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#settingsModal.modal.open {
+  display: flex;
+}
+#settingsModal .modal-content {
+  background-color: var(--space-color);
+  padding: 20px;
+  border: 1px solid var(--line-color);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+#settingsModal .modal-content label {
+  display: block;
+  margin: 5px 0;
 }
 #xmlInput {
   position: fixed;
@@ -373,13 +398,31 @@ svg {
 <div class="sheet" id="zoomContainer"></div>
 
 <div class="controls">
-  <button 
+  <button
     onclick="addStaffBlock()">Add
   </button>
   <button id="zoomIn">+</button>
   <button id="zoomOut">-</button>
   <button id="refreshTies">Refresh Ties</button>
   <button id="renderBeams">Render Beams</button>
+  <button id="openSettings">Settings</button>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal">
+  <div class="modal-content">
+    <button id="closeSettings">Close</button>
+    <h3>Settings</h3>
+    <label>Space Color <input type="color" id="spaceColor"></label>
+    <label>Line Color <input type="color" id="lineColor"></label>
+    <label>Note Color <input type="color" id="noteColor"></label>
+    <label>Tie Color <input type="color" id="tieColor"></label>
+    <label>Staff Width <input type="range" id="staffWidth" min="0.5" max="3" step="0.1"></label>
+    <label>Space Height <input type="range" id="spaceHeight" min="0.5" max="2" step="0.1"></label>
+    <label>Line Height <input type="range" id="lineHeight" min="0.05" max="0.5" step="0.01"></label>
+    <label>Note Height <input type="range" id="noteHeight" min="0.5" max="2" step="0.1"></label>
+    <label>Note Width <input type="range" id="noteWidth" min="0.5" max="2" step="0.1"></label>
+  </div>
 </div>
 
 <section class="assets"style="display:none;">
@@ -942,6 +985,51 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   document.querySelector('.sheet')
   .appendChild(staffClone);
 }
+
+// Settings modal logic
+const settingsModal = document.getElementById('settingsModal');
+const openSettings = document.getElementById('openSettings');
+const closeSettings = document.getElementById('closeSettings');
+
+openSettings.addEventListener('click', () => {
+  settingsModal.classList.add('open');
+});
+closeSettings.addEventListener('click', () => {
+  settingsModal.classList.remove('open');
+});
+
+const colorSettings = [
+  { css: '--space-color', id: 'spaceColor' },
+  { css: '--line-color',  id: 'lineColor'  },
+  { css: '--note-color',  id: 'noteColor'  },
+  { css: '--tie-color',   id: 'tieColor'   },
+];
+
+colorSettings.forEach(s => {
+  const input = document.getElementById(s.id);
+  input.value = getComputedStyle(document.documentElement).getPropertyValue(s.css).trim();
+  input.addEventListener('input', () => {
+    document.documentElement.style.setProperty(s.css, input.value);
+  });
+});
+
+const numericSettings = [
+  { css: '--staff-width', id: 'staffWidth', unit: 'em' },
+  { css: '--space-height', id: 'spaceHeight', unit: 'em' },
+  { css: '--line-height', id: 'lineHeight', unit: 'em' },
+  { css: '--note-height', id: 'noteHeight', unit: 'em' },
+  { css: '--note-width', id: 'noteWidth', unit: 'em' },
+];
+
+numericSettings.forEach(s => {
+  const input = document.getElementById(s.id);
+  const current = getComputedStyle(document.documentElement).getPropertyValue(s.css).trim();
+  input.value = parseFloat(current);
+  input.addEventListener('input', () => {
+    document.documentElement.style.setProperty(s.css, input.value + s.unit);
+    tieify();
+  });
+});
 
 // Recalculate ties whenever layout changes
 window.addEventListener('resize', tieify);
