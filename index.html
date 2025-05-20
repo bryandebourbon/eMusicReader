@@ -30,6 +30,7 @@ listening for notes and plotting them
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- <meta http-equiv="refresh" content="10"> -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <title>Music Note</title>
 <!--
@@ -404,14 +405,14 @@ svg {
     id="xmlInput"
     type="file"
     onchange="fileHandler(event)"/>
-  <button id="useDefaultFile">Use Default File</button>
-  <button onclick="addStaffBlock()">Add</button>
-  <button id="zoomIn">+</button>
-  <button id="zoomOut">-</button>
-  <button id="refreshTies">Refresh Ties</button>
-  <button id="renderBeams">Render Beams</button>
-  <button id="openSettings">Settings</button>
-  <button id="toggleDarkMode">Dark Mode</button>
+  <button id="useDefaultFile" title="Use Default File"><i class="fa-solid fa-file-lines"></i></button>
+  <button onclick="addStaffBlock()" title="Add Staff"><i class="fa-solid fa-plus"></i></button>
+  <button id="zoomIn" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+  <button id="zoomOut" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+  <button id="refreshTies" title="Refresh Ties"><i class="fa-solid fa-arrows-rotate"></i></button>
+  <button id="renderBeams" title="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
+  <button id="openSettings" title="Settings"><i class="fa-solid fa-gear"></i></button>
+  <button id="toggleDarkMode" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
 </div>
 
 <div class="sheet" id="zoomContainer"></div>
@@ -419,7 +420,7 @@ svg {
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
   <div class="modal-content">
-    <button id="closeSettings">Close</button>
+    <button id="closeSettings" title="Close"><i class="fa-solid fa-xmark"></i></button>
     <h3>Settings</h3>
     <label>Space Color <input type="color" id="spaceColor"></label>
     <label>Line Color <input type="color" id="lineColor"></label>
@@ -1000,6 +1001,13 @@ const openSettings = document.getElementById('openSettings');
 const closeSettings = document.getElementById('closeSettings');
 const darkModeToggle = document.getElementById('toggleDarkMode');
 
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  document.documentElement.classList.add('dark-mode');
+  document.body.classList.add('dark-mode');
+  const icon = darkModeToggle.querySelector('i');
+  if (icon) icon.classList.replace('fa-moon', 'fa-sun');
+}
+
 openSettings.addEventListener('click', () => {
   settingsModal.classList.add('open');
 });
@@ -1009,6 +1017,11 @@ closeSettings.addEventListener('click', () => {
 darkModeToggle.addEventListener('click', () => {
   document.documentElement.classList.toggle('dark-mode');
   document.body.classList.toggle('dark-mode');
+  const icon = darkModeToggle.querySelector('i');
+  if (icon) {
+    icon.classList.toggle('fa-moon');
+    icon.classList.toggle('fa-sun');
+  }
 });
 
 const colorSettings = [
