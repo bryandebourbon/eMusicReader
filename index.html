@@ -408,6 +408,10 @@ svg {
   left: 0;
 }
 
+.note.phrase-highlight {
+  outline: 2px solid red;
+}
+
 /* .tie-under {
     border-color: green blue red yellow;
     border-radius: 50px 50px 50px 50px;
@@ -431,6 +435,7 @@ svg {
     id="xmlInput"
     type="file"
     onchange="fileHandler(event)"/>
+
   <button id="useDefaultFile" class="tooltip" data-tooltip="Use Default File"><i class="fa-solid fa-file-lines"></i></button>
   <button onclick="addStaffBlock()" class="tooltip" data-tooltip="Add Staff"><i class="fa-solid fa-plus"></i></button>
   <button id="zoomIn" class="tooltip" data-tooltip="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
@@ -439,6 +444,9 @@ svg {
   <button id="renderBeams" class="tooltip" data-tooltip="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
   <button id="openSettings" class="tooltip" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></button>
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+  <button id="runDetect" title="Run Detect Again">Detect</button>
+  <select id="phraseSelect" title="Detected Melodies"></select>
+
 </div>
 
 <div class="sheet" id="zoomContainer"></div>
@@ -527,6 +535,11 @@ svg {
 // Global vars to cache event state
 let evCache = [];
 let prevDiff = -1;
+
+// Global arrays for melody pattern detection
+let noteSteps = [];
+let noteElements = [];
+let detectedPatterns = {};
 
 function init() {
 // Install event handlers for the pointer target
@@ -973,6 +986,12 @@ function appendInterleavedNotes(notesByPart, measureDiv) {
         noteDiv.classList.add(`stem-${n.stem}`);
       }
 
+      if (noteDiv) {
+        noteDiv.dataset.index = noteSteps.length;
+        noteSteps.push(n.step);
+        noteElements.push(noteDiv);
+      }
+
       if (n.ties && n.ties.length) {
         n.ties.forEach(tie => {
           noteDiv.dataset[`tie${tie.number}`] = tie.type;
@@ -1022,8 +1041,13 @@ function appendInterleavedNotes(notesByPart, measureDiv) {
 }
 
 function populateStaffFromMusicXML(xmlDoc) {
+  noteSteps = [];
+  noteElements = [];
+  detectedPatterns = {};
+
   const parts = xmlDoc.getElementsByTagName("part");
   const sheet = document.querySelector('.sheet');
+  sheet.innerHTML = '';
 
   const measuresByPart = Array.from(parts).map(p => p.getElementsByTagName("measure"));
   const maxMeasures = Math.max(...measuresByPart.map(m => m.length));
@@ -1042,6 +1066,7 @@ function populateStaffFromMusicXML(xmlDoc) {
   requestAnimationFrame(() => {
     beamify();
     tieify();
+    detectPatternsFromSteps();
   });
 }
 
@@ -1092,7 +1117,6 @@ function fileHandler(event) {
     const xmlDoc = parser
       .parseFromString(reader.result,"text/xml");
     populateStaffFromMusicXML(xmlDoc);
-    requestAnimationFrame(tieify);
   }
   console.log(event.target.files[0])
   reader.readAsText(event.target.files[0]);
@@ -1129,7 +1153,7 @@ function dragHandler(e) {
 
 function dropHandler(e){
   e.preventDefault();
-  const dropzone = e.target.closest('div'); 
+  const dropzone = e.target.closest('div');
   if (dropzone == null) return;
   const noteId = e.dataTransfer.getData('text');
   const draggedNote = document.getElementById(noteId)
@@ -1140,6 +1164,67 @@ function dropHandler(e){
   if (draggedNote.parentNode) {
     draggedNote.parentNode.removeChild(draggedNote);
   }
+}
+
+function detectPatternsFromSteps() {
+  console.log('detectPatternsFromSteps: start', noteSteps);
+  const patterns = new Set();
+  const len = noteSteps.length;
+  for (let l = 4; l <= len / 2; l++) {
+    for (let i = 0; i <= len - 2 * l; i++) {
+      const a = noteSteps.slice(i, i + l).join('');
+      const b = noteSteps.slice(i + l, i + 2 * l).join('');
+      if (a === b) patterns.add(a);
+    }
+  }
+
+  detectedPatterns = {};
+  patterns.forEach(p => {
+    const seqLen = p.length;
+    const indexes = [];
+    for (let i = 0; i <= len - seqLen; i++) {
+      if (noteSteps.slice(i, i + seqLen).join('') === p) indexes.push(i);
+    }
+    if (indexes.length > 1) detectedPatterns[p] = { length: seqLen, positions: indexes };
+  });
+
+  // Remove patterns that are just one note shorter at either end of a longer pattern
+  const keys = Object.keys(detectedPatterns).sort((a, b) => detectedPatterns[b].length - detectedPatterns[a].length);
+  keys.forEach(long => {
+    keys.forEach(short => {
+      if (detectedPatterns[short] && detectedPatterns[long] && long.length === short.length + 1) {
+        if (long.slice(1) === short || long.slice(0, -1) === short) {
+          delete detectedPatterns[short];
+        }
+      }
+    });
+  });
+
+  const select = document.getElementById('phraseSelect');
+  if (select) {
+    select.innerHTML = '<option value="">Select melody</option>';
+    Object.keys(detectedPatterns).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      select.appendChild(opt);
+    });
+  }
+  console.log('detectPatternsFromSteps: found', detectedPatterns);
+}
+
+function highlightPhrase(p) {
+  console.log('highlightPhrase', p);
+  noteElements.forEach(n => n.classList.remove('phrase-highlight'));
+  if (!p || !detectedPatterns[p]) return;
+  const info = detectedPatterns[p];
+  info.positions.forEach(pos => {
+    for (let i = 0; i < info.length; i++) {
+      const idx = pos + i;
+      const el = noteElements[idx];
+      if (el) el.classList.add('phrase-highlight');
+    }
+  });
 }
 
 function addStaffBlock(pitchSpace='e4',noteType='quarter') {
@@ -1218,6 +1303,19 @@ numericSettings.forEach(s => {
     tieify();
   });
 });
+
+const phraseSelect = document.getElementById('phraseSelect');
+if (phraseSelect) {
+  phraseSelect.addEventListener('change', e => highlightPhrase(e.target.value));
+}
+
+const runDetectBtn = document.getElementById('runDetect');
+if (runDetectBtn) {
+  runDetectBtn.addEventListener('click', () => {
+    console.log('runDetect button clicked');
+    detectPatternsFromSteps();
+  });
+}
 
 // Recalculate ties whenever layout changes
 window.addEventListener('resize', tieify);
