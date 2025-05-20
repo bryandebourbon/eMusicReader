@@ -539,15 +539,16 @@ document.getElementById('renderBeams').addEventListener('click', () => {
   });
 });
 
-document.getElementById('useDefaultFile').addEventListener('click', function() {
-  fetch('ddd.xml') // Adjust the path if your XML file is in a specific directory
-    .then(response => response.text())
-    .then(data => {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(data,"text/xml");
-      populateStaffFromMusicXML(xmlDoc);
-    })
-    .catch(error => console.error('Error loading the default file:', error));
+document.getElementById('useDefaultFile').addEventListener('click', async function() {
+  try {
+    const response = await fetch('ddd.xml'); // Adjust the path if your XML file is in a specific directory
+    const data = await response.text();
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(data, "text/xml");
+    await populateStaffFromMusicXML(xmlDoc);
+  } catch (error) {
+    console.error('Error loading the default file:', error);
+  }
 });
 
  
@@ -807,14 +808,15 @@ function appendMeasureNotes(measure, measureDiv) {
 }
 
 function populateStaffFromMusicXML(xmlDoc) {
-  const parts = xmlDoc.getElementsByTagName("part");
-  const sheet = document.querySelector('.sheet');
+  return new Promise(resolve => {
+    const parts = xmlDoc.getElementsByTagName("part");
+    const sheet = document.querySelector('.sheet');
 
   const measuresByPart = Array.from(parts).map(p => p.getElementsByTagName("measure"));
   const maxMeasures = Math.max(...measuresByPart.map(m => m.length));
 
-  for (let i = 0; i < maxMeasures; i++) {
-    let measureDiv = document.querySelector('.assets .measure').cloneNode(true);
+    for (let i = 0; i < maxMeasures; i++) {
+      let measureDiv = document.querySelector('.assets .measure').cloneNode(true);
 
     for (let p = 0; p < measuresByPart.length; p++) {
       const measure = measuresByPart[p][i];
@@ -822,12 +824,14 @@ function populateStaffFromMusicXML(xmlDoc) {
       measureDiv = appendMeasureNotes(measure, measureDiv);
     }
 
-    sheet.appendChild(measureDiv);
-  }
-  // Ensure layout is calculated before drawing beams and ties
-  requestAnimationFrame(() => {
-    beamify();
-    tieify();
+      sheet.appendChild(measureDiv);
+    }
+    // Ensure layout is calculated before drawing beams and ties
+    requestAnimationFrame(() => {
+      beamify();
+      tieify();
+      resolve();
+    });
   });
 }
 
@@ -871,14 +875,13 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
 ###  #  ### # #  #  ##
 */
 
-function fileHandler(event) {
+async function fileHandler(event) {
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     const parser = new DOMParser();
     const xmlDoc = parser
-      .parseFromString(reader.result,"text/xml");
-    populateStaffFromMusicXML(xmlDoc);
-    requestAnimationFrame(tieify);
+      .parseFromString(reader.result, "text/xml");
+    await populateStaffFromMusicXML(xmlDoc);
   }
   console.log(event.target.files[0])
   reader.readAsText(event.target.files[0]);
