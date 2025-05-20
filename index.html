@@ -546,6 +546,10 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data,"text/xml");
       populateStaffFromMusicXML(xmlDoc);
+      requestAnimationFrame(() => {
+        beamify();
+        tieify();
+      });
     })
     .catch(error => console.error('Error loading the default file:', error));
 });
