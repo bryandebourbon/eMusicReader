@@ -458,6 +458,9 @@ svg {
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
   <button id="runDetect" title="Run Detect Again">Detect</button>
+  <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
+    <input type="checkbox" id="autoFeatures" checked> Auto Ties
+  </label>
   <select id="phraseSelect" title="Detected Melodies"></select>
 
 </div>
@@ -554,6 +557,7 @@ let prevDiff = -1;
 let noteSteps = [];
 let noteElements = [];
 let detectedPatterns = {};
+let autoFeaturesEnabled = true;
 
 function init() {
 // Install event handlers for the pointer target
@@ -587,14 +591,14 @@ console.log(prevDiff)
         console.log("Pinch moving OUT -> Zoom in", ev);
           zoomLevel += 0.1;
         zoomContainer.style.zoom = zoomLevel;
-        tieify();
+        if (autoFeaturesEnabled) tieify();
       }
       if (curDiff < prevDiff) {
         // The distance between the two pointers has decreased
         console.log("Pinch moving IN -> Zoom out", ev);
           zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
-  tieify();
+  if (autoFeaturesEnabled) tieify();
       }
     } 
       prevDiff = curDiff;
@@ -623,13 +627,13 @@ let zoomLevel = 1;
 document.getElementById('zoomIn').addEventListener('click', () => {
   zoomLevel += 0.1;
   zoomContainer.style.zoom = zoomLevel;
-  tieify();
+  if (autoFeaturesEnabled) tieify();
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
   zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
-  tieify();
+  if (autoFeaturesEnabled) tieify();
 
 });
 
@@ -640,7 +644,7 @@ document.getElementById('refreshTies').addEventListener('click', () => {
 document.getElementById('renderBeams').addEventListener('click', () => {
   requestAnimationFrame(() => {
     beamify();
-    tieify();
+    if (autoFeaturesEnabled) tieify();
   });
 });
 
@@ -1115,8 +1119,10 @@ function populateStaffFromMusicXML(xmlDoc) {
   // Ensure layout is calculated before drawing beams and ties
   requestAnimationFrame(() => {
     beamify();
-    tieify();
-    detectPatternsFromSteps();
+    if (autoFeaturesEnabled) {
+      tieify();
+      detectPatternsFromSteps();
+    }
   });
 }
 
@@ -1174,7 +1180,7 @@ function fileHandler(event) {
       .parseFromString(reader.result,"text/xml");
     displayScoreInfo(parseScoreInfo(xmlDoc));
     populateStaffFromMusicXML(xmlDoc);
-    requestAnimationFrame(tieify);
+    if (autoFeaturesEnabled) requestAnimationFrame(tieify);
   }
   console.log(event.target.files[0])
   reader.readAsText(event.target.files[0]);
@@ -1307,7 +1313,14 @@ const settingsModal = document.getElementById('settingsModal');
 const openSettings = document.getElementById('openSettings');
 const closeSettings = document.getElementById('closeSettings');
 const darkModeToggle = document.getElementById('toggleDarkMode');
+
 const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
+
+const autoFeatureToggle = document.getElementById('autoFeatures');
+if (autoFeatureToggle) {
+  autoFeaturesEnabled = autoFeatureToggle.checked;
+}
+
 
 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.documentElement.classList.add('dark-mode');
@@ -1336,6 +1349,19 @@ if (toggleScoreInfoBtn) {
     const div = document.getElementById('scoreInfo');
     if (!div) return;
     div.style.display = div.style.display === 'none' ? '' : 'none';
+  });
+}
+
+if (autoFeatureToggle) {
+  autoFeatureToggle.addEventListener('change', () => {
+    autoFeaturesEnabled = autoFeatureToggle.checked;
+    if (autoFeaturesEnabled) {
+      tieify();
+      detectPatternsFromSteps();
+    } else {
+      document.querySelectorAll('.sheet .tieDiv').forEach(t => t.remove());
+      highlightPhrase('');
+    }
   });
 }
 
@@ -1368,7 +1394,7 @@ numericSettings.forEach(s => {
   input.value = parseFloat(current);
   input.addEventListener('input', () => {
     document.documentElement.style.setProperty(s.css, input.value + s.unit);
-    tieify();
+    if (autoFeaturesEnabled) tieify();
   });
 });
 const sheetElement = document.querySelector(".sheet");
@@ -1430,6 +1456,8 @@ if (runDetectBtn) {
 }
 
 // Recalculate ties whenever layout changes
-window.addEventListener('resize', tieify);
+window.addEventListener('resize', () => {
+  if (autoFeaturesEnabled) tieify();
+});
 </script>
 </html>
