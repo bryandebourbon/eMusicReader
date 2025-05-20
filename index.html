@@ -126,6 +126,32 @@ svg {
   padding: 4px;
   z-index: 10;
 }
+.tooltip {
+  position: relative;
+  border: none;
+  background: none;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(-1 * var(--space-height) * 1.5);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  background-color: var(--line-color);
+  color: var(--space-color);
+  white-space: nowrap;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+  z-index: 100;
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+}
 #settingsModal.modal {
   position: fixed;
   top: 0;
@@ -409,16 +435,18 @@ svg {
     id="xmlInput"
     type="file"
     onchange="fileHandler(event)"/>
-  <button id="useDefaultFile" title="Use Default File"><i class="fa-solid fa-file-lines"></i></button>
-  <button onclick="addStaffBlock()" title="Add Staff"><i class="fa-solid fa-plus"></i></button>
-  <button id="zoomIn" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-  <button id="zoomOut" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-  <button id="refreshTies" title="Refresh Ties"><i class="fa-solid fa-arrows-rotate"></i></button>
-  <button id="renderBeams" title="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
-  <button id="openSettings" title="Settings"><i class="fa-solid fa-gear"></i></button>
-  <button id="toggleDarkMode" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+
+  <button id="useDefaultFile" class="tooltip" data-tooltip="Use Default File"><i class="fa-solid fa-file-lines"></i></button>
+  <button onclick="addStaffBlock()" class="tooltip" data-tooltip="Add Staff"><i class="fa-solid fa-plus"></i></button>
+  <button id="zoomIn" class="tooltip" data-tooltip="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+  <button id="zoomOut" class="tooltip" data-tooltip="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+  <button id="refreshTies" class="tooltip" data-tooltip="Refresh Ties"><i class="fa-solid fa-arrows-rotate"></i></button>
+  <button id="renderBeams" class="tooltip" data-tooltip="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
+  <button id="openSettings" class="tooltip" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></button>
+  <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
   <button id="runDetect" title="Run Detect Again">Detect</button>
   <select id="phraseSelect" title="Detected Melodies"></select>
+
 </div>
 
 <div class="sheet" id="zoomContainer"></div>
@@ -426,7 +454,7 @@ svg {
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
   <div class="modal-content">
-    <button id="closeSettings" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    <button id="closeSettings" class="tooltip" data-tooltip="Close"><i class="fa-solid fa-xmark"></i></button>
     <h3>Settings</h3>
     <label>Space Color <input type="color" id="spaceColor"></label>
     <label>Line Color <input type="color" id="lineColor"></label>
