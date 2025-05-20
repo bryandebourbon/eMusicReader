@@ -13,3 +13,11 @@ https://htmlpreview.github.io/?https://raw.githubusercontent.com/<USER>/<REPO>/<
 Replace `<USER>`, `<REPO>` and `<BRANCH>` with the appropriate values to get a
 clickable link for testing a pull request.
 
+## Touch Support
+
+You can swipe across the staffs on mobile devices to select a phrase. When you lift your finger, all matching phrases in the score will be highlighted.
+
+
+## Page Navigation
+
+Scrolling is disabled so swipe gestures work reliably. Use the new left and right arrows to move between pages. Each page spans exactly one screen height.

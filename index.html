@@ -201,7 +201,7 @@ svg {
   position:relative;
   display: flex;
     flex-wrap: wrap;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 .measure {
   position: relative;
@@ -472,6 +472,8 @@ svg {
   <button id="openSettings" class="tooltip" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></button>
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
+  <button id="prevPage" class="tooltip" data-tooltip="Previous Page"><i class="fa-solid fa-arrow-left"></i></button>
+  <button id="nextPage" class="tooltip" data-tooltip="Next Page"><i class="fa-solid fa-arrow-right"></i></button>
   <button id="runDetect" title="Run Detect Again">Detect</button>
   <select id="phraseSelect" title="Detected Melodies"></select>
   <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
@@ -1589,6 +1591,20 @@ sheetElement.addEventListener("mousedown", e => {
   e.preventDefault();
 });
 
+sheetElement.addEventListener("touchstart", e => {
+  const touch = e.touches[0];
+  const el = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : e.target;
+  const block = el && el.closest(".staff");
+  if (!block) return;
+  staffList = Array.from(sheetElement.querySelectorAll(".staff"));
+  startIndex = staffList.indexOf(block);
+  if (startIndex === -1) return;
+  selecting = true;
+  clearSelection();
+  block.classList.add("selected");
+  e.preventDefault();
+});
+
 sheetElement.addEventListener("mousemove", e => {
   if (!selecting) return;
   const block = e.target.closest(".staff");
@@ -1600,6 +1616,22 @@ sheetElement.addEventListener("mousemove", e => {
   for (let i = start; i <= end; i++) {
     staffList[i].classList.add("selected");
   }
+});
+
+sheetElement.addEventListener("touchmove", e => {
+  if (!selecting) return;
+  const touch = e.touches[0];
+  const el = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : e.target;
+  const block = el && el.closest(".staff");
+  if (!block) return;
+  const idx = staffList.indexOf(block);
+  if (idx === -1) return;
+  clearSelection();
+  const [start, end] = idx >= startIndex ? [startIndex, idx] : [idx, startIndex];
+  for (let i = start; i <= end; i++) {
+    staffList[i].classList.add("selected");
+  }
+  e.preventDefault();
 });
 
 function highlightExactFromSelection() {
@@ -1640,6 +1672,17 @@ document.addEventListener("mouseup", () => {
   selecting = false;
 });
 
+document.addEventListener("touchend", () => {
+  if (selecting) {
+    highlightExactFromSelection();
+  }
+  selecting = false;
+});
+
+document.addEventListener("touchcancel", () => {
+  selecting = false;
+});
+
 document.addEventListener("keyup", () => {
   highlightExactFromSelection();
 });
@@ -1670,6 +1713,23 @@ const runDetectBtn = document.getElementById('runDetect');
       updatePhraseSelect();
     });
   }
+const prevPageBtn = document.getElementById("prevPage");
+const nextPageBtn = document.getElementById("nextPage");
+let pageHeight = 0;
+function updatePageHeight() {
+  const controls = document.querySelector(".controls");
+  pageHeight = window.innerHeight - (controls ? controls.offsetHeight : 0);
+  sheetElement.style.height = pageHeight + "px";
+}
+updatePageHeight();
+window.addEventListener("resize", updatePageHeight);
+prevPageBtn.addEventListener("click", () => {
+  sheetElement.scrollTop = Math.max(sheetElement.scrollTop - pageHeight, 0);
+});
+nextPageBtn.addEventListener("click", () => {
+  sheetElement.scrollTop = Math.min(sheetElement.scrollTop + pageHeight, sheetElement.scrollHeight - pageHeight);
+});
+
 
 // Recalculate ties whenever layout changes
 window.addEventListener('resize', () => {
