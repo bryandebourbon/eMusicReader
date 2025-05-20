@@ -419,6 +419,12 @@ svg {
   outline: 2px solid red;
 }
 
+.phrase-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed blue;
+}
+
 /* .tie-under {
     border-color: green blue red yellow;
     border-radius: 50px 50px 50px 50px;
@@ -545,8 +551,13 @@ let prevDiff = -1;
 
 // Global arrays for melody pattern detection
 let noteSteps = [];
+let notePitches = [];
+let pitchSigns = [];
+const pitchMap = {c:0, d:1, e:2, f:3, g:4, a:5, b:6};
 let noteElements = [];
 let detectedPatterns = {};
+let detectedDescending = {};
+let phraseBoxes = [];
 
 function init() {
 // Install event handlers for the pointer target
@@ -996,6 +1007,12 @@ function appendInterleavedNotes(notesByPart, measureDiv) {
       if (noteDiv) {
         noteDiv.dataset.index = noteSteps.length;
         noteSteps.push(n.step);
+        const pitchVal = pitchMap[n.step] + parseInt(n.octave) * 7;
+        notePitches.push(pitchVal);
+        if (notePitches.length > 1) {
+          const diff = pitchVal - notePitches[notePitches.length-2];
+          pitchSigns.push(diff > 0 ? 'U' : diff < 0 ? 'D' : 'S');
+        }
         noteElements.push(noteDiv);
       }
 
@@ -1049,8 +1066,12 @@ function appendInterleavedNotes(notesByPart, measureDiv) {
 
 function populateStaffFromMusicXML(xmlDoc) {
   noteSteps = [];
+  notePitches = [];
+  pitchSigns = [];
   noteElements = [];
   detectedPatterns = {};
+  detectedDescending = {};
+  clearPhraseBoxes();
 
   const parts = xmlDoc.getElementsByTagName("part");
   const sheet = document.querySelector('.sheet');
@@ -1074,6 +1095,8 @@ function populateStaffFromMusicXML(xmlDoc) {
     beamify();
     tieify();
     detectPatternsFromSteps();
+    detectDescendingPatterns();
+    showDescendingBoxes();
   });
 }
 
@@ -1241,6 +1264,64 @@ function highlightPhrase(p) {
   });
 }
 
+function clearPhraseBoxes() {
+  phraseBoxes.forEach(b => b.remove());
+  phraseBoxes = [];
+}
+
+function drawPhraseBox(startIdx, endIdx) {
+  const sheet = document.querySelector('.sheet');
+  const notes = noteElements.slice(startIdx, endIdx + 1);
+  if (!notes.length) return;
+  const rects = notes.map(n => n.getBoundingClientRect());
+  const sheetRect = sheet.getBoundingClientRect();
+  const left = Math.min(...rects.map(r => r.left)) - sheetRect.left + window.scrollX;
+  const top = Math.min(...rects.map(r => r.top)) - sheetRect.top + window.scrollY;
+  const right = Math.max(...rects.map(r => r.right)) - sheetRect.left + window.scrollX;
+  const bottom = Math.max(...rects.map(r => r.bottom)) - sheetRect.top + window.scrollY;
+
+  const box = document.createElement('div');
+  box.className = 'phrase-box';
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.width = `${right - left}px`;
+  box.style.height = `${bottom - top}px`;
+  sheet.appendChild(box);
+  phraseBoxes.push(box);
+}
+
+function detectDescendingPatterns() {
+  const len = notePitches.length;
+  const patterns = {};
+  for (let l = 4; l <= len / 2; l++) {
+    for (let i = 0; i <= len - 2 * l; i++) {
+      const start1 = notePitches[i];
+      const end1 = notePitches[i + l - 1];
+      const start2 = notePitches[i + l];
+      const end2 = notePitches[i + 2 * l - 1];
+      if (start1 > end1 && start2 > end2) {
+        const pat1 = pitchSigns.slice(i, i + l - 1).join('');
+        const pat2 = pitchSigns.slice(i + l, i + 2 * l - 1).join('');
+        if (pat1 === pat2) {
+          if (!patterns[pat1]) patterns[pat1] = { length: l, positions: [] };
+          patterns[pat1].positions.push(i);
+        }
+      }
+    }
+  }
+  Object.keys(patterns).forEach(p => {
+    if (patterns[p].positions.length < 2) delete patterns[p];
+  });
+  detectedDescending = patterns;
+}
+
+function showDescendingBoxes() {
+  clearPhraseBoxes();
+  Object.values(detectedDescending).forEach(info => {
+    info.positions.forEach(pos => drawPhraseBox(pos, pos + info.length - 1));
+  });
+}
+
 function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   const staffClone = assets.querySelector('.staff').cloneNode(true);
   const noteClone = assets.querySelector('.note').cloneNode(true);
@@ -1374,6 +1455,8 @@ if (runDetectBtn) {
   runDetectBtn.addEventListener('click', () => {
     console.log('runDetect button clicked');
     detectPatternsFromSteps();
+    detectDescendingPatterns();
+    showDescendingBoxes();
   });
 }
 
