@@ -1601,7 +1601,36 @@ sheetElement.addEventListener("mousemove", e => {
   }
 });
 
-document.addEventListener("mouseup", () => { selecting = false; });
+function highlightSimilarFromSelection() {
+  const selected = sheetElement.querySelectorAll('.staff.selected');
+  if (!selected.length) return;
+  const firstNotes = selected[0].querySelectorAll('.note');
+  const lastNotes = selected[selected.length - 1].querySelectorAll('.note');
+  if (!firstNotes.length || !lastNotes.length) return;
+  const startIdx = Math.min(...Array.from(firstNotes).map(n => parseInt(n.dataset.index)));
+  const endIdx = Math.max(...Array.from(lastNotes).map(n => parseInt(n.dataset.index)));
+  if (isNaN(startIdx) || isNaN(endIdx) || startIdx > endIdx) return;
+  const selPattern = noteSteps.slice(startIdx, endIdx + 1).join('');
+
+  let match = null;
+  if (allDetectedPatterns[selPattern]) {
+    match = selPattern;
+  } else {
+    Object.keys(allDetectedPatterns).forEach(p => {
+      if (match) return;
+      if (p.includes(selPattern) || selPattern.includes(p)) match = p;
+    });
+  }
+
+  if (match) highlightPhrase(match);
+}
+
+document.addEventListener("mouseup", () => {
+  if (selecting) {
+    highlightSimilarFromSelection();
+  }
+  selecting = false;
+});
 
 document.addEventListener("copy", e => {
   const selected = sheetElement.querySelectorAll(".staff.selected");
