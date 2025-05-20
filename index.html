@@ -858,6 +858,143 @@ function appendMeasureNotes(measure, measureDiv) {
   return measureDiv;
 }
 
+function parseMeasureNotes(measure) {
+  const result = [];
+  let currentTime = 0;
+
+  Array.from(measure.children).forEach(el => {
+    if (el.tagName === 'note') {
+      const durationEl = el.getElementsByTagName('duration')[0];
+      const duration = durationEl ? parseInt(durationEl.textContent) : 0;
+
+      const stepEl = el.getElementsByTagName('step')[0];
+      const octaveEl = el.getElementsByTagName('octave')[0];
+      const typeEl = el.getElementsByTagName('type')[0];
+      const stemEl = el.getElementsByTagName('stem')[0];
+      const beamEl = el.getElementsByTagName('beam')[0];
+      const tiedEls = el.getElementsByTagName('tied');
+      const isChord = el.getElementsByTagName('chord')[0];
+
+      if (stepEl && octaveEl && typeEl) {
+        const ties = [];
+        if (tiedEls && tiedEls.length) {
+          for (let t = 0; t < tiedEls.length; t++) {
+            ties.push({
+              number: tiedEls[t].getAttribute('number') || '1',
+              orientation: tiedEls[t].getAttribute('orientation'),
+              type: tiedEls[t].getAttribute('type')
+            });
+          }
+        }
+
+        result.push({
+          time: currentTime,
+          step: stepEl.textContent.toLowerCase(),
+          octave: octaveEl.textContent,
+          noteType: typeEl.textContent,
+          isChord: !!isChord,
+          stem: stemEl ? stemEl.textContent : null,
+          beam: beamEl ? beamEl.textContent : null,
+          ties
+        });
+      }
+
+      if (!isChord) {
+        currentTime += duration;
+      }
+    } else if (el.tagName === 'forward') {
+      const dur = el.getElementsByTagName('duration')[0];
+      if (dur) currentTime += parseInt(dur.textContent);
+    } else if (el.tagName === 'backup') {
+      const dur = el.getElementsByTagName('duration')[0];
+      if (dur) currentTime -= parseInt(dur.textContent);
+    }
+  });
+
+  return result;
+}
+
+function appendInterleavedNotes(notesByPart, measureDiv) {
+  const beamDivs = new Array(notesByPart.length).fill(null);
+  const prevBlocks = new Array(notesByPart.length).fill(null);
+
+  const allNotes = [];
+  notesByPart.forEach((notes, idx) => {
+    notes.forEach(n => allNotes.push(Object.assign({ part: idx }, n)));
+  });
+
+  allNotes.sort((a, b) => {
+    if (a.time === b.time) return a.part - b.part;
+    return a.time - b.time;
+  });
+
+  allNotes.forEach(n => {
+    const part = n.part;
+    let beamDiv = beamDivs[part];
+    let prevStaffBlock = prevBlocks[part];
+
+    const musicNote = `${n.step}${n.octave}`;
+    let staffBlock;
+    if (n.isChord) {
+      staffBlock = plotStaffBlock(prevStaffBlock, musicNote, n.noteType);
+    } else {
+      staffBlock = genStaffBlock(musicNote, n.noteType);
+    }
+
+    if (staffBlock instanceof Node) {
+      const noteDiv = staffBlock.querySelector('.note');
+      if (n.stem && noteDiv) {
+        noteDiv.classList.add(`stem-${n.stem}`);
+      }
+
+      if (n.ties && n.ties.length) {
+        n.ties.forEach(tie => {
+          noteDiv.dataset[`tie${tie.number}`] = tie.type;
+          if (tie.orientation) {
+            noteDiv.classList.add(`tie-${tie.orientation}`);
+          }
+        });
+      }
+
+      if (n.beam) {
+        if (n.beam === 'begin') {
+          beamDiv = document.querySelector('.assets .beam').cloneNode(true);
+        }
+        if (beamDiv && beamDiv instanceof Node) {
+          beamDiv.appendChild(staffBlock);
+        }
+        if (n.beam === 'end' && beamDiv) {
+          measureDiv.appendChild(beamDiv);
+          beamDiv = null;
+        }
+      } else {
+        if (beamDiv && beamDiv instanceof Node) {
+          measureDiv.appendChild(beamDiv);
+          beamDiv = null;
+        }
+        if (!n.isChord) {
+          measureDiv.appendChild(staffBlock);
+        }
+      }
+
+      if (!n.isChord) {
+        prevStaffBlock = staffBlock;
+      }
+    }
+
+    beamDivs[part] = beamDiv;
+    prevBlocks[part] = prevStaffBlock;
+  });
+
+  beamDivs.forEach(beamDiv => {
+    if (beamDiv && beamDiv instanceof Node) {
+      measureDiv.appendChild(beamDiv);
+    }
+  });
+
+  return measureDiv;
+}
+
 function populateStaffFromMusicXML(xmlDoc) {
   const parts = xmlDoc.getElementsByTagName("part");
   const sheet = document.querySelector('.sheet');
@@ -865,14 +1002,13 @@ function populateStaffFromMusicXML(xmlDoc) {
   const measuresByPart = Array.from(parts).map(p => p.getElementsByTagName("measure"));
   const maxMeasures = Math.max(...measuresByPart.map(m => m.length));
 
+  const parsed = measuresByPart.map(measures => Array.from(measures).map(m => parseMeasureNotes(m)));
+
   for (let i = 0; i < maxMeasures; i++) {
     let measureDiv = document.querySelector('.assets .measure').cloneNode(true);
 
-    for (let p = 0; p < measuresByPart.length; p++) {
-      const measure = measuresByPart[p][i];
-      if (!measure) continue;
-      measureDiv = appendMeasureNotes(measure, measureDiv);
-    }
+    const notesForMeasure = parsed.map(p => p[i] || []);
+    measureDiv = appendInterleavedNotes(notesForMeasure, measureDiv);
 
     sheet.appendChild(measureDiv);
   }
