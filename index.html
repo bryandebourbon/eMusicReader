@@ -557,6 +557,7 @@ function init() {
   el.onpointercancel = pointerupHandler;
   el.onpointerout = pointerupHandler;
   el.onpointerleave = pointerupHandler;
+  loadState();
 }
 function pointerdownHandler(ev) {
   evCache.push(ev);
@@ -580,6 +581,7 @@ console.log(prevDiff)
         console.log("Pinch moving OUT -> Zoom in", ev);
           zoomLevel += 0.1;
         zoomContainer.style.zoom = zoomLevel;
+        saveState();
         tieify();
       }
       if (curDiff < prevDiff) {
@@ -587,6 +589,7 @@ console.log(prevDiff)
         console.log("Pinch moving IN -> Zoom out", ev);
           zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
+  saveState();
   tieify();
       }
     } 
@@ -612,16 +615,40 @@ const assets = document.querySelector('.assets')
 
 const zoomContainer = document.getElementById('zoomContainer');
 let zoomLevel = 1;
+function saveState() {
+  const sheet = document.querySelector(".sheet");
+  if (sheet) {
+    localStorage.setItem("sheetHTML", sheet.innerHTML);
+  }
+  localStorage.setItem("zoomLevel", zoomLevel);
+}
+
+function loadState() {
+  const sheet = document.querySelector(".sheet");
+  const savedHTML = localStorage.getItem("sheetHTML");
+  if (sheet && savedHTML) {
+    sheet.innerHTML = savedHTML;
+    requestAnimationFrame(() => { beamify(); tieify(); });
+  }
+  const savedZoom = parseFloat(localStorage.getItem("zoomLevel"));
+  if (!isNaN(savedZoom)) {
+    zoomLevel = savedZoom;
+    zoomContainer.style.zoom = zoomLevel;
+  }
+}
+
 
 document.getElementById('zoomIn').addEventListener('click', () => {
   zoomLevel += 0.1;
   zoomContainer.style.zoom = zoomLevel;
+  saveState();
   tieify();
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
   zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
+  saveState();
   tieify();
 
 });
@@ -644,6 +671,7 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data,"text/xml");
       populateStaffFromMusicXML(xmlDoc);
+      saveState();
     })
     .catch(error => console.error('Error loading the default file:', error));
 });
@@ -1131,6 +1159,7 @@ function fileHandler(event) {
       .parseFromString(reader.result,"text/xml");
     populateStaffFromMusicXML(xmlDoc);
     requestAnimationFrame(tieify);
+    saveState();
   }
   console.log(event.target.files[0])
   reader.readAsText(event.target.files[0]);
@@ -1178,6 +1207,7 @@ function dropHandler(e){
   if (draggedNote.parentNode) {
     draggedNote.parentNode.removeChild(draggedNote);
   }
+  saveState();
 }
 
 function detectPatternsFromSteps() {
@@ -1256,6 +1286,7 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   plotSpace.appendChild(noteClone);
   document.querySelector('.sheet')
   .appendChild(staffClone);
+  saveState();
 }
 
 // Settings modal logic
@@ -1378,6 +1409,7 @@ if (runDetectBtn) {
 }
 
 // Recalculate ties whenever layout changes
+window.addEventListener("beforeunload", saveState);
 window.addEventListener('resize', tieify);
 </script>
 </html>
