@@ -184,6 +184,11 @@ svg {
 #xmlInput {
   position: static;
 }
+
+#scoreInfo {
+  margin-top: 40px;
+  color: var(--line-color);
+}
   
 .sheet {
   padding: 40px;
@@ -451,10 +456,12 @@ svg {
   <button id="renderBeams" class="tooltip" data-tooltip="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
   <button id="openSettings" class="tooltip" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></button>
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+  <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
   <button id="runDetect" title="Run Detect Again">Detect</button>
   <select id="phraseSelect" title="Detected Melodies"></select>
 
 </div>
+<div id="scoreInfo"></div>
 
 <div class="sheet" id="zoomContainer"></div>
 
@@ -643,6 +650,7 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
     .then(data => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data,"text/xml");
+      displayScoreInfo(parseScoreInfo(xmlDoc));
       populateStaffFromMusicXML(xmlDoc);
     })
     .catch(error => console.error('Error loading the default file:', error));
@@ -960,6 +968,39 @@ function parseMeasureNotes(measure) {
   return result;
 }
 
+function parseScoreInfo(xmlDoc) {
+  const info = { dynamics: [], textDirections: [] };
+  const attr = xmlDoc.querySelector('part measure attributes');
+  if (attr) {
+    const fifths = attr.querySelector('key fifths');
+    if (fifths) info.key = fifths.textContent;
+    const beats = attr.querySelector('time beats');
+    const beatType = attr.querySelector('time beat-type');
+    if (beats && beatType) info.time = `${beats.textContent}/${beatType.textContent}`;
+    const clef = attr.querySelector('clef sign');
+    if (clef) info.clef = clef.textContent;
+  }
+  xmlDoc.querySelectorAll('direction-type dynamics').forEach(d => {
+    const child = d.firstElementChild;
+    if (child) info.dynamics.push(child.tagName);
+  });
+  xmlDoc.querySelectorAll('direction-type words').forEach(w => {
+    info.textDirections.push(w.textContent.trim());
+  });
+  return info;
+}
+
+function displayScoreInfo(info) {
+  const div = document.getElementById('scoreInfo');
+  if (!div) return;
+  div.innerHTML = '';
+  if (info.key) div.innerHTML += `<div>Key: ${info.key}</div>`;
+  if (info.time) div.innerHTML += `<div>Time: ${info.time}</div>`;
+  if (info.clef) div.innerHTML += `<div>Clef: ${info.clef}</div>`;
+  if (info.dynamics.length) div.innerHTML += `<div>Dynamics: ${info.dynamics.join(', ')}</div>`;
+  if (info.textDirections.length) div.innerHTML += `<div>Directions: ${info.textDirections.join(', ')}</div>`;
+}
+
 function appendInterleavedNotes(notesByPart, measureDiv) {
   const beamDivs = new Array(notesByPart.length).fill(null);
   const prevBlocks = new Array(notesByPart.length).fill(null);
@@ -1052,6 +1093,8 @@ function populateStaffFromMusicXML(xmlDoc) {
   noteElements = [];
   detectedPatterns = {};
 
+  displayScoreInfo(parseScoreInfo(xmlDoc));
+
   const parts = xmlDoc.getElementsByTagName("part");
   const sheet = document.querySelector('.sheet');
   sheet.innerHTML = '';
@@ -1129,6 +1172,7 @@ function fileHandler(event) {
     const parser = new DOMParser();
     const xmlDoc = parser
       .parseFromString(reader.result,"text/xml");
+    displayScoreInfo(parseScoreInfo(xmlDoc));
     populateStaffFromMusicXML(xmlDoc);
     requestAnimationFrame(tieify);
   }
@@ -1263,6 +1307,7 @@ const settingsModal = document.getElementById('settingsModal');
 const openSettings = document.getElementById('openSettings');
 const closeSettings = document.getElementById('closeSettings');
 const darkModeToggle = document.getElementById('toggleDarkMode');
+const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
 
 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.documentElement.classList.add('dark-mode');
@@ -1286,6 +1331,13 @@ darkModeToggle.addEventListener('click', () => {
     icon.classList.toggle('fa-sun');
   }
 });
+if (toggleScoreInfoBtn) {
+  toggleScoreInfoBtn.addEventListener('click', () => {
+    const div = document.getElementById('scoreInfo');
+    if (!div) return;
+    div.style.display = div.style.display === 'none' ? '' : 'none';
+  });
+}
 
 const colorSettings = [
   { css: '--space-color', id: 'spaceColor' },
