@@ -434,6 +434,9 @@ svg {
   pointer-events: none;
   border: 2px dashed blue;
 }
+.phrase-box.winner {
+  border: 4px solid green;
+}
 
 /* .tie-under {
     border-color: green blue red yellow;
@@ -574,6 +577,9 @@ let detectedPatterns = {};
 
 let detectedDescending = {};
 let phraseBoxes = [];
+
+let allDetectedPatterns = {};
+let winningGroups = [];
 
 let autoFeaturesEnabled = true;
 
@@ -1150,12 +1156,14 @@ function populateStaffFromMusicXML(xmlDoc) {
   requestAnimationFrame(() => {
       detectPatternsFromSteps();
       detectDescendingPatterns();
-      showDescendingBoxes();
+      updateAllPatterns();
+      findWinningPatterns();
+      showWinningBoxes();
       updatePhraseSelect();
-    if (autoFeaturesEnabled) {
-      tieify();
-      beamify();
-    }
+      if (autoFeaturesEnabled) {
+        tieify();
+        beamify();
+      }
   });
 }
 
@@ -1298,7 +1306,6 @@ function detectPatternsFromSteps() {
   });
 
   console.log('detectPatternsFromSteps: found', detectedPatterns);
-  updatePhraseSelect();
 }
 
 function highlightPhrase(p) {
@@ -1321,7 +1328,7 @@ function clearPhraseBoxes() {
   phraseBoxes = [];
 }
 
-function drawPhraseBox(startIdx, endIdx) {
+function drawPhraseBox(startIdx, endIdx, isWinner = false) {
   const sheet = document.querySelector('.sheet');
   const notes = noteElements.slice(startIdx, endIdx + 1);
   if (!notes.length) return;
@@ -1333,13 +1340,14 @@ function drawPhraseBox(startIdx, endIdx) {
   const bottom = Math.max(...rects.map(r => r.bottom)) - sheetRect.top + window.scrollY;
 
   const box = document.createElement('div');
-  box.className = 'phrase-box';
+  box.className = isWinner ? 'phrase-box winner' : 'phrase-box';
   box.style.left = `${left}px`;
   box.style.top = `${top}px`;
   box.style.width = `${right - left}px`;
   box.style.height = `${bottom - top}px`;
   sheet.appendChild(box);
   phraseBoxes.push(box);
+  return box;
 }
 
 function detectDescendingPatterns() {
@@ -1367,7 +1375,6 @@ function detectDescendingPatterns() {
     }
   });
   detectedDescending = patterns;
-  updatePhraseSelect();
 }
 
 function showDescendingBoxes() {
@@ -1383,11 +1390,72 @@ function updatePhraseSelect() {
   if (!select) return;
   select.innerHTML = '<option value="">Select melody</option>';
   const merged = { ...detectedPatterns, ...detectedDescending };
+  allDetectedPatterns = merged;
   Object.keys(merged).forEach(p => {
     const opt = document.createElement('option');
     opt.value = p;
     opt.textContent = p;
     select.appendChild(opt);
+  });
+}
+
+function updateAllPatterns() {
+  allDetectedPatterns = { ...detectedPatterns, ...detectedDescending };
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i-1] === b[j-1]) dp[i][j] = dp[i-1][j-1];
+      else dp[i][j] = Math.min(dp[i-1][j-1], dp[i][j-1], dp[i-1][j]) + 1;
+    }
+  }
+  return dp[m][n];
+}
+
+function groupSimilarPhrases(patterns, threshold = 0.3) {
+  const groups = [];
+  Object.keys(patterns).forEach(p => {
+    let placed = false;
+    for (const g of groups) {
+      const dist = levenshtein(p, g.rep);
+      const limit = Math.min(p.length, g.rep.length) * threshold;
+      if (dist <= limit) {
+        g.patterns.push(p);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) groups.push({ rep: p, patterns: [p] });
+  });
+  return groups;
+}
+
+function findWinningPatterns(maxLen = 20) {
+  const groups = groupSimilarPhrases(allDetectedPatterns);
+  winningGroups = [];
+  groups.forEach(g => {
+    let winner = null;
+    g.patterns.forEach(p => {
+      const len = allDetectedPatterns[p].length;
+      if (len <= maxLen && (!winner || len > allDetectedPatterns[winner].length)) {
+        winner = p;
+      }
+    });
+    if (winner) winningGroups.push({ winner });
+  });
+}
+
+function showWinningBoxes() {
+  clearPhraseBoxes();
+  winningGroups.forEach(g => {
+    const info = allDetectedPatterns[g.winner];
+    if (!info) return;
+    info.positions.forEach(pos => drawPhraseBox(pos, pos + info.length - 1, true));
   });
 }
 
@@ -1553,7 +1621,9 @@ const runDetectBtn = document.getElementById('runDetect');
       console.log('runDetect button clicked');
       detectPatternsFromSteps();
       detectDescendingPatterns();
-      showDescendingBoxes();
+      updateAllPatterns();
+      findWinningPatterns();
+      showWinningBoxes();
       updatePhraseSelect();
     });
   }
