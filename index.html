@@ -78,6 +78,16 @@ listening for notes and plotting them
   }
   
 }
+
+.dark-mode {
+  --space-color: black;
+  --line-color: white;
+  --note-color: white;
+}
+
+body.dark-mode {
+  background-color: black;
+}
 html, body {
   display: flex;
     flex-direction: column;
@@ -105,11 +115,15 @@ svg {
 }
 .controls {
   position: fixed;
-  bottom: 0;
-  right: 0;
-        width:600;
-  height:300;
+  top: 0;
+  left: 0;
+  width: 100%;
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background-color: var(--space-color);
+  padding: 4px;
+  z-index: 10;
 }
 #settingsModal.modal {
   position: fixed;
@@ -137,9 +151,7 @@ svg {
   margin: 5px 0;
 }
 #xmlInput {
-  position: fixed;
-  top: 0;
-  left: 0;
+  position: static;
 }
   
 .sheet {
@@ -387,26 +399,22 @@ svg {
 ######################################
 -->
 <body onload="init();" style="touch-action:none" >
-<input 
-  id="xmlInput" 
-  type="file" 
-  onchange="fileHandler(event)"/>
-<button id="useDefaultFile">Use Default File</button>
-
-
-  
-<div class="sheet" id="zoomContainer"></div>
-
 <div class="controls">
-  <button
-    onclick="addStaffBlock()">Add
-  </button>
+  <input
+    id="xmlInput"
+    type="file"
+    onchange="fileHandler(event)"/>
+  <button id="useDefaultFile">Use Default File</button>
+  <button onclick="addStaffBlock()">Add</button>
   <button id="zoomIn">+</button>
   <button id="zoomOut">-</button>
   <button id="refreshTies">Refresh Ties</button>
   <button id="renderBeams">Render Beams</button>
   <button id="openSettings">Settings</button>
+  <button id="toggleDarkMode">Dark Mode</button>
 </div>
+
+<div class="sheet" id="zoomContainer"></div>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
@@ -990,12 +998,17 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
 const settingsModal = document.getElementById('settingsModal');
 const openSettings = document.getElementById('openSettings');
 const closeSettings = document.getElementById('closeSettings');
+const darkModeToggle = document.getElementById('toggleDarkMode');
 
 openSettings.addEventListener('click', () => {
   settingsModal.classList.add('open');
 });
 closeSettings.addEventListener('click', () => {
   settingsModal.classList.remove('open');
+});
+darkModeToggle.addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark-mode');
+  document.body.classList.toggle('dark-mode');
 });
 
 const colorSettings = [
