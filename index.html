@@ -1589,6 +1589,20 @@ sheetElement.addEventListener("mousedown", e => {
   e.preventDefault();
 });
 
+sheetElement.addEventListener("touchstart", e => {
+  const touch = e.touches[0];
+  const el = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : e.target;
+  const block = el && el.closest(".staff");
+  if (!block) return;
+  staffList = Array.from(sheetElement.querySelectorAll(".staff"));
+  startIndex = staffList.indexOf(block);
+  if (startIndex === -1) return;
+  selecting = true;
+  clearSelection();
+  block.classList.add("selected");
+  e.preventDefault();
+});
+
 sheetElement.addEventListener("mousemove", e => {
   if (!selecting) return;
   const block = e.target.closest(".staff");
@@ -1600,6 +1614,22 @@ sheetElement.addEventListener("mousemove", e => {
   for (let i = start; i <= end; i++) {
     staffList[i].classList.add("selected");
   }
+});
+
+sheetElement.addEventListener("touchmove", e => {
+  if (!selecting) return;
+  const touch = e.touches[0];
+  const el = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : e.target;
+  const block = el && el.closest(".staff");
+  if (!block) return;
+  const idx = staffList.indexOf(block);
+  if (idx === -1) return;
+  clearSelection();
+  const [start, end] = idx >= startIndex ? [startIndex, idx] : [idx, startIndex];
+  for (let i = start; i <= end; i++) {
+    staffList[i].classList.add("selected");
+  }
+  e.preventDefault();
 });
 
 function highlightExactFromSelection() {
@@ -1637,6 +1667,17 @@ document.addEventListener("mouseup", () => {
   if (selecting) {
     highlightExactFromSelection();
   }
+  selecting = false;
+});
+
+document.addEventListener("touchend", () => {
+  if (selecting) {
+    highlightExactFromSelection();
+  }
+  selecting = false;
+});
+
+document.addEventListener("touchcancel", () => {
   selecting = false;
 });
 
