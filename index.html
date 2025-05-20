@@ -114,19 +114,23 @@ svg {
   width: 100%;
   height: 100%;
 }
-.controls {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  background-color: var(--space-color);
-  padding: 4px;
-  z-index: 10;
-}
-.tooltip {
+  .controls {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    background-color: var(--space-color);
+    padding: 4px;
+    z-index: 10;
+  }
+  .controls button,
+  .controls i {
+    color: var(--line-color);
+  }
+  .tooltip {
   position: relative;
   border: none;
   background: none;
