@@ -213,6 +213,9 @@ svg {
   z-index: 0;
   margin:0;
 }
+.staff.selected {
+  outline: 2px solid blue;
+}
 
 .line {
   background-color: var(--line-color);
@@ -1083,6 +1086,8 @@ function genStaffBlock(pitchSpace='e4', noteType='quarter') {
   noteClone.id = Math.random();
   noteClone.classList.add(noteType);
 
+  const stepLetter = pitchSpace.replace(/\d+/, "");
+  staffClone.dataset.letters = stepLetter;
   const plotSpace = staffClone.querySelector(`.${pitchSpace}`)
   if (plotSpace == null) return;
   plotSpace.appendChild(noteClone);
@@ -1095,6 +1100,10 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
   noteClone.id = Math.random();
   noteClone.classList.add(noteType);
 
+  const stepLetter = pitchSpace.replace(/\d+/, "");
+  existingStaffBlock.dataset.letters = existingStaffBlock.dataset.letters
+    ? existingStaffBlock.dataset.letters + " " + stepLetter
+    : stepLetter;
   const plotSpace = existingStaffBlock.querySelector(`.${pitchSpace}`);
   if (plotSpace == null) return;
   plotSpace.appendChild(noteClone);
@@ -1117,6 +1126,7 @@ function fileHandler(event) {
     const xmlDoc = parser
       .parseFromString(reader.result,"text/xml");
     populateStaffFromMusicXML(xmlDoc);
+    requestAnimationFrame(tieify);
   }
   console.log(event.target.files[0])
   reader.readAsText(event.target.files[0]);
@@ -1235,6 +1245,8 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
 
   // console.log(pitchSpace)
 
+  const stepLetter = pitchSpace.replace(/\d+/, "");
+  staffClone.dataset.letters = stepLetter;
   const plotSpace = staffClone.querySelector(`.${pitchSpace}`)
   if (plotSpace == null) return;
   plotSpace.appendChild(noteClone);
@@ -1302,6 +1314,50 @@ numericSettings.forEach(s => {
     document.documentElement.style.setProperty(s.css, input.value + s.unit);
     tieify();
   });
+});
+const sheetElement = document.querySelector(".sheet");
+let selecting = false;
+let startIndex = -1;
+let staffList = [];
+
+function clearSelection() {
+  sheetElement.querySelectorAll(".staff.selected").forEach(el => el.classList.remove("selected"));
+}
+
+sheetElement.addEventListener("mousedown", e => {
+  const block = e.target.closest(".staff");
+  if (!block) return;
+  staffList = Array.from(sheetElement.querySelectorAll(".staff"));
+  startIndex = staffList.indexOf(block);
+  if (startIndex === -1) return;
+  selecting = true;
+  clearSelection();
+  block.classList.add("selected");
+  e.preventDefault();
+});
+
+sheetElement.addEventListener("mousemove", e => {
+  if (!selecting) return;
+  const block = e.target.closest(".staff");
+  if (!block) return;
+  const idx = staffList.indexOf(block);
+  if (idx === -1) return;
+  clearSelection();
+  const [start, end] = idx >= startIndex ? [startIndex, idx] : [idx, startIndex];
+  for (let i = start; i <= end; i++) {
+    staffList[i].classList.add("selected");
+  }
+});
+
+document.addEventListener("mouseup", () => { selecting = false; });
+
+document.addEventListener("copy", e => {
+  const selected = sheetElement.querySelectorAll(".staff.selected");
+  if (selected.length) {
+    const text = Array.from(selected).map(el => el.dataset.letters || "").join("\n");
+    e.clipboardData.setData("text/plain", text);
+    e.preventDefault();
+  }
 });
 
 const phraseSelect = document.getElementById('phraseSelect');
