@@ -13,3 +13,7 @@ https://htmlpreview.github.io/?https://raw.githubusercontent.com/<USER>/<REPO>/<
 Replace `<USER>`, `<REPO>` and `<BRANCH>` with the appropriate values to get a
 clickable link for testing a pull request.
 
+## Touch Support
+
+You can swipe across the staffs on mobile devices to select a phrase. When you lift your finger, all matching phrases in the score will be highlighted.
+
