@@ -1601,7 +1601,47 @@ sheetElement.addEventListener("mousemove", e => {
   }
 });
 
-document.addEventListener("mouseup", () => { selecting = false; });
+function highlightExactFromSelection() {
+  const selected = sheetElement.querySelectorAll('.staff.selected');
+  if (!selected.length) return;
+  const firstNotes = selected[0].querySelectorAll('.note');
+  const lastNotes = selected[selected.length - 1].querySelectorAll('.note');
+  if (!firstNotes.length || !lastNotes.length) return;
+  const startIdx = Math.min(...Array.from(firstNotes).map(n => parseInt(n.dataset.index)));
+  const endIdx = Math.max(...Array.from(lastNotes).map(n => parseInt(n.dataset.index)));
+  if (isNaN(startIdx) || isNaN(endIdx) || startIdx > endIdx) return;
+  const patternLength = endIdx - startIdx + 1;
+  const selPattern = noteSteps.slice(startIdx, endIdx + 1).join('');
+
+  const matches = [];
+  for (let i = 0; i <= noteSteps.length - patternLength; i++) {
+    if (noteSteps.slice(i, i + patternLength).join('') === selPattern) {
+      matches.push(i);
+    }
+  }
+
+  noteElements.forEach(n => n.classList.remove('phrase-highlight'));
+  clearPhraseBoxes();
+  matches.forEach(pos => {
+    for (let i = 0; i < patternLength; i++) {
+      const idx = pos + i;
+      const el = noteElements[idx];
+      if (el) el.classList.add('phrase-highlight');
+    }
+    drawPhraseBox(pos, pos + patternLength - 1);
+  });
+}
+
+document.addEventListener("mouseup", () => {
+  if (selecting) {
+    highlightExactFromSelection();
+  }
+  selecting = false;
+});
+
+document.addEventListener("keyup", () => {
+  highlightExactFromSelection();
+});
 
 document.addEventListener("copy", e => {
   const selected = sheetElement.querySelectorAll(".staff.selected");
