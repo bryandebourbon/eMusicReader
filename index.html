@@ -127,8 +127,13 @@ svg {
     z-index: 10;
   }
   .controls button,
-  .controls i {
+  .controls i,
+  .controls select {
     color: var(--line-color);
+  }
+  .controls select {
+    background-color: var(--space-color);
+    border: 1px solid var(--line-color);
   }
   .tooltip {
   position: relative;
@@ -424,6 +429,12 @@ svg {
   outline: 2px solid red;
 }
 
+.phrase-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed blue;
+}
+
 /* .tie-under {
     border-color: green blue red yellow;
     border-radius: 50px 50px 50px 50px;
@@ -555,9 +566,17 @@ let prevDiff = -1;
 
 // Global arrays for melody pattern detection
 let noteSteps = [];
+let notePitches = [];
+let pitchSigns = [];
+const pitchMap = {c:0, d:1, e:2, f:3, g:4, a:5, b:6};
 let noteElements = [];
 let detectedPatterns = {};
+
+let detectedDescending = {};
+let phraseBoxes = [];
+
 let autoFeaturesEnabled = true;
+
 
 function init() {
 // Install event handlers for the pointer target
@@ -1041,6 +1060,12 @@ function appendInterleavedNotes(notesByPart, measureDiv) {
       if (noteDiv) {
         noteDiv.dataset.index = noteSteps.length;
         noteSteps.push(n.step);
+        const pitchVal = pitchMap[n.step] + parseInt(n.octave) * 7;
+        notePitches.push(pitchVal);
+        if (notePitches.length > 1) {
+          const diff = pitchVal - notePitches[notePitches.length-2];
+          pitchSigns.push(diff > 0 ? 'U' : diff < 0 ? 'D' : 'S');
+        }
         noteElements.push(noteDiv);
       }
 
@@ -1094,8 +1119,12 @@ function appendInterleavedNotes(notesByPart, measureDiv) {
 
 function populateStaffFromMusicXML(xmlDoc) {
   noteSteps = [];
+  notePitches = [];
+  pitchSigns = [];
   noteElements = [];
   detectedPatterns = {};
+  detectedDescending = {};
+  clearPhraseBoxes();
 
   displayScoreInfo(parseScoreInfo(xmlDoc));
 
@@ -1117,11 +1146,15 @@ function populateStaffFromMusicXML(xmlDoc) {
     sheet.appendChild(measureDiv);
   }
   // Ensure layout is calculated before drawing beams and ties
+
   requestAnimationFrame(() => {
-    beamify();
+      detectPatternsFromSteps();
+      detectDescendingPatterns();
+      showDescendingBoxes();
+      updatePhraseSelect();
     if (autoFeaturesEnabled) {
       tieify();
-      detectPatternsFromSteps();
+      beamify();
     }
   });
 }
@@ -1264,30 +1297,97 @@ function detectPatternsFromSteps() {
     });
   });
 
-  const select = document.getElementById('phraseSelect');
-  if (select) {
-    select.innerHTML = '<option value="">Select melody</option>';
-    Object.keys(detectedPatterns).forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p;
-      opt.textContent = p;
-      select.appendChild(opt);
-    });
-  }
   console.log('detectPatternsFromSteps: found', detectedPatterns);
+  updatePhraseSelect();
 }
 
 function highlightPhrase(p) {
   console.log('highlightPhrase', p);
   noteElements.forEach(n => n.classList.remove('phrase-highlight'));
-  if (!p || !detectedPatterns[p]) return;
-  const info = detectedPatterns[p];
+  if (!p) return;
+  const info = detectedPatterns[p] || detectedDescending[p];
+  if (!info) return;
   info.positions.forEach(pos => {
     for (let i = 0; i < info.length; i++) {
       const idx = pos + i;
       const el = noteElements[idx];
       if (el) el.classList.add('phrase-highlight');
     }
+  });
+}
+
+function clearPhraseBoxes() {
+  phraseBoxes.forEach(b => b.remove());
+  phraseBoxes = [];
+}
+
+function drawPhraseBox(startIdx, endIdx) {
+  const sheet = document.querySelector('.sheet');
+  const notes = noteElements.slice(startIdx, endIdx + 1);
+  if (!notes.length) return;
+  const rects = notes.map(n => n.getBoundingClientRect());
+  const sheetRect = sheet.getBoundingClientRect();
+  const left = Math.min(...rects.map(r => r.left)) - sheetRect.left + window.scrollX;
+  const top = Math.min(...rects.map(r => r.top)) - sheetRect.top + window.scrollY;
+  const right = Math.max(...rects.map(r => r.right)) - sheetRect.left + window.scrollX;
+  const bottom = Math.max(...rects.map(r => r.bottom)) - sheetRect.top + window.scrollY;
+
+  const box = document.createElement('div');
+  box.className = 'phrase-box';
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.width = `${right - left}px`;
+  box.style.height = `${bottom - top}px`;
+  sheet.appendChild(box);
+  phraseBoxes.push(box);
+}
+
+function detectDescendingPatterns() {
+  const len = notePitches.length;
+  const patterns = {};
+  for (let l = 3; l <= 10 && l <= len; l++) {
+    for (let i = 0; i <= len - l; i++) {
+      if (notePitches[i + l - 1] >= notePitches[i]) continue;
+      const key = pitchSigns.slice(i, i + l - 1).join('');
+      if (!patterns[key]) patterns[key] = { length: l, positions: [] };
+      patterns[key].positions.push(i);
+    }
+  }
+  Object.keys(patterns).forEach(k => {
+    const info = patterns[k];
+    info.positions.sort((a, b) => a - b);
+    const pruned = [];
+    info.positions.forEach(pos => {
+      if (pruned.every(p => pos >= p + info.length)) pruned.push(pos);
+    });
+    if (pruned.length < 2) {
+      delete patterns[k];
+    } else {
+      info.positions = pruned;
+    }
+  });
+  detectedDescending = patterns;
+  updatePhraseSelect();
+}
+
+function showDescendingBoxes() {
+  clearPhraseBoxes();
+  Object.values(detectedDescending).forEach(info => {
+    if (!info || !info.positions) return;
+    info.positions.forEach(pos => drawPhraseBox(pos, pos + info.length - 1));
+  });
+}
+
+function updatePhraseSelect() {
+  const select = document.getElementById('phraseSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="">Select melody</option>';
+  const merged = { ...detectedPatterns, ...detectedDescending };
+  Object.keys(merged).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
   });
 }
 
@@ -1448,12 +1548,15 @@ if (phraseSelect) {
 }
 
 const runDetectBtn = document.getElementById('runDetect');
-if (runDetectBtn) {
-  runDetectBtn.addEventListener('click', () => {
-    console.log('runDetect button clicked');
-    detectPatternsFromSteps();
-  });
-}
+  if (runDetectBtn) {
+    runDetectBtn.addEventListener('click', () => {
+      console.log('runDetect button clicked');
+      detectPatternsFromSteps();
+      detectDescendingPatterns();
+      showDescendingBoxes();
+      updatePhraseSelect();
+    });
+  }
 
 // Recalculate ties whenever layout changes
 window.addEventListener('resize', () => {
