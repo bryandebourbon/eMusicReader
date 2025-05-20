@@ -189,6 +189,11 @@ svg {
 #xmlInput {
   position: static;
 }
+
+#scoreInfo {
+  margin-top: 40px;
+  color: var(--line-color);
+}
   
 .sheet {
   padding: 40px;
@@ -462,10 +467,15 @@ svg {
   <button id="renderBeams" class="tooltip" data-tooltip="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
   <button id="openSettings" class="tooltip" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></button>
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+  <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
   <button id="runDetect" title="Run Detect Again">Detect</button>
+  <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
+    <input type="checkbox" id="autoFeatures" checked> Auto Ties
+  </label>
   <select id="phraseSelect" title="Detected Melodies"></select>
 
 </div>
+<div id="scoreInfo"></div>
 
 <div class="sheet" id="zoomContainer"></div>
 
@@ -561,8 +571,12 @@ let pitchSigns = [];
 const pitchMap = {c:0, d:1, e:2, f:3, g:4, a:5, b:6};
 let noteElements = [];
 let detectedPatterns = {};
+
 let detectedDescending = {};
 let phraseBoxes = [];
+
+let autoFeaturesEnabled = true;
+
 
 function init() {
 // Install event handlers for the pointer target
@@ -596,14 +610,14 @@ console.log(prevDiff)
         console.log("Pinch moving OUT -> Zoom in", ev);
           zoomLevel += 0.1;
         zoomContainer.style.zoom = zoomLevel;
-        tieify();
+        if (autoFeaturesEnabled) tieify();
       }
       if (curDiff < prevDiff) {
         // The distance between the two pointers has decreased
         console.log("Pinch moving IN -> Zoom out", ev);
           zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
-  tieify();
+  if (autoFeaturesEnabled) tieify();
       }
     } 
       prevDiff = curDiff;
@@ -632,13 +646,13 @@ let zoomLevel = 1;
 document.getElementById('zoomIn').addEventListener('click', () => {
   zoomLevel += 0.1;
   zoomContainer.style.zoom = zoomLevel;
-  tieify();
+  if (autoFeaturesEnabled) tieify();
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
   zoomLevel -= 0.1;
   zoomContainer.style.zoom = zoomLevel;
-  tieify();
+  if (autoFeaturesEnabled) tieify();
 
 });
 
@@ -649,7 +663,7 @@ document.getElementById('refreshTies').addEventListener('click', () => {
 document.getElementById('renderBeams').addEventListener('click', () => {
   requestAnimationFrame(() => {
     beamify();
-    tieify();
+    if (autoFeaturesEnabled) tieify();
   });
 });
 
@@ -659,6 +673,7 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
     .then(data => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data,"text/xml");
+      displayScoreInfo(parseScoreInfo(xmlDoc));
       populateStaffFromMusicXML(xmlDoc);
     })
     .catch(error => console.error('Error loading the default file:', error));
@@ -976,6 +991,39 @@ function parseMeasureNotes(measure) {
   return result;
 }
 
+function parseScoreInfo(xmlDoc) {
+  const info = { dynamics: [], textDirections: [] };
+  const attr = xmlDoc.querySelector('part measure attributes');
+  if (attr) {
+    const fifths = attr.querySelector('key fifths');
+    if (fifths) info.key = fifths.textContent;
+    const beats = attr.querySelector('time beats');
+    const beatType = attr.querySelector('time beat-type');
+    if (beats && beatType) info.time = `${beats.textContent}/${beatType.textContent}`;
+    const clef = attr.querySelector('clef sign');
+    if (clef) info.clef = clef.textContent;
+  }
+  xmlDoc.querySelectorAll('direction-type dynamics').forEach(d => {
+    const child = d.firstElementChild;
+    if (child) info.dynamics.push(child.tagName);
+  });
+  xmlDoc.querySelectorAll('direction-type words').forEach(w => {
+    info.textDirections.push(w.textContent.trim());
+  });
+  return info;
+}
+
+function displayScoreInfo(info) {
+  const div = document.getElementById('scoreInfo');
+  if (!div) return;
+  div.innerHTML = '';
+  if (info.key) div.innerHTML += `<div>Key: ${info.key}</div>`;
+  if (info.time) div.innerHTML += `<div>Time: ${info.time}</div>`;
+  if (info.clef) div.innerHTML += `<div>Clef: ${info.clef}</div>`;
+  if (info.dynamics.length) div.innerHTML += `<div>Dynamics: ${info.dynamics.join(', ')}</div>`;
+  if (info.textDirections.length) div.innerHTML += `<div>Directions: ${info.textDirections.join(', ')}</div>`;
+}
+
 function appendInterleavedNotes(notesByPart, measureDiv) {
   const beamDivs = new Array(notesByPart.length).fill(null);
   const prevBlocks = new Array(notesByPart.length).fill(null);
@@ -1078,6 +1126,8 @@ function populateStaffFromMusicXML(xmlDoc) {
   detectedDescending = {};
   clearPhraseBoxes();
 
+  displayScoreInfo(parseScoreInfo(xmlDoc));
+
   const parts = xmlDoc.getElementsByTagName("part");
   const sheet = document.querySelector('.sheet');
   sheet.innerHTML = '';
@@ -1096,15 +1146,18 @@ function populateStaffFromMusicXML(xmlDoc) {
     sheet.appendChild(measureDiv);
   }
   // Ensure layout is calculated before drawing beams and ties
-    requestAnimationFrame(() => {
-      beamify();
-      tieify();
+
+  requestAnimationFrame(() => {
       detectPatternsFromSteps();
       detectDescendingPatterns();
       showDescendingBoxes();
       updatePhraseSelect();
-    });
-  }
+    if (autoFeaturesEnabled) {
+      tieify();
+      beamify();
+    }
+  });
+}
 
 
 //  ## ###  #  ### ### ##  #    #   ## # #
@@ -1158,8 +1211,9 @@ function fileHandler(event) {
     const parser = new DOMParser();
     const xmlDoc = parser
       .parseFromString(reader.result,"text/xml");
+    displayScoreInfo(parseScoreInfo(xmlDoc));
     populateStaffFromMusicXML(xmlDoc);
-    requestAnimationFrame(tieify);
+    if (autoFeaturesEnabled) requestAnimationFrame(tieify);
   }
   console.log(event.target.files[0])
   reader.readAsText(event.target.files[0]);
@@ -1360,6 +1414,14 @@ const openSettings = document.getElementById('openSettings');
 const closeSettings = document.getElementById('closeSettings');
 const darkModeToggle = document.getElementById('toggleDarkMode');
 
+const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
+
+const autoFeatureToggle = document.getElementById('autoFeatures');
+if (autoFeatureToggle) {
+  autoFeaturesEnabled = autoFeatureToggle.checked;
+}
+
+
 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.documentElement.classList.add('dark-mode');
   document.body.classList.add('dark-mode');
@@ -1382,6 +1444,26 @@ darkModeToggle.addEventListener('click', () => {
     icon.classList.toggle('fa-sun');
   }
 });
+if (toggleScoreInfoBtn) {
+  toggleScoreInfoBtn.addEventListener('click', () => {
+    const div = document.getElementById('scoreInfo');
+    if (!div) return;
+    div.style.display = div.style.display === 'none' ? '' : 'none';
+  });
+}
+
+if (autoFeatureToggle) {
+  autoFeatureToggle.addEventListener('change', () => {
+    autoFeaturesEnabled = autoFeatureToggle.checked;
+    if (autoFeaturesEnabled) {
+      tieify();
+      detectPatternsFromSteps();
+    } else {
+      document.querySelectorAll('.sheet .tieDiv').forEach(t => t.remove());
+      highlightPhrase('');
+    }
+  });
+}
 
 const colorSettings = [
   { css: '--space-color', id: 'spaceColor' },
@@ -1412,7 +1494,7 @@ numericSettings.forEach(s => {
   input.value = parseFloat(current);
   input.addEventListener('input', () => {
     document.documentElement.style.setProperty(s.css, input.value + s.unit);
-    tieify();
+    if (autoFeaturesEnabled) tieify();
   });
 });
 const sheetElement = document.querySelector(".sheet");
@@ -1477,6 +1559,8 @@ const runDetectBtn = document.getElementById('runDetect');
   }
 
 // Recalculate ties whenever layout changes
-window.addEventListener('resize', tieify);
+window.addEventListener('resize', () => {
+  if (autoFeaturesEnabled) tieify();
+});
 </script>
 </html>
