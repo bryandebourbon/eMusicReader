@@ -193,6 +193,7 @@ svg {
 #scoreInfo {
   margin-top: 40px;
   color: var(--line-color);
+  display: none;
 }
   
 .sheet {
@@ -472,10 +473,10 @@ svg {
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
   <button id="runDetect" title="Run Detect Again">Detect</button>
-  <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
-    <input type="checkbox" id="autoFeatures" checked> Auto Ties
-  </label>
   <select id="phraseSelect" title="Detected Melodies"></select>
+  <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
+    <input type="checkbox" id="autoFeatures"> Auto Ties
+  </label>
 
 </div>
 <div id="scoreInfo"></div>
@@ -581,7 +582,7 @@ let phraseBoxes = [];
 let allDetectedPatterns = {};
 let winningGroups = [];
 
-let autoFeaturesEnabled = true;
+let autoFeaturesEnabled = false;
 
 
 function init() {
