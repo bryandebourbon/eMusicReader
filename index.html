@@ -318,6 +318,20 @@ svg {
   background-color: var(--note-color);
   border-radius: 50%;
 }
+.note .letter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.7em;
+  line-height: 1;
+  color: var(--space-color);
+  user-select: none;
+  display: none;
+}
+.show-note-letters .note .letter {
+  display: block;
+}
 .note.whole > .head {
   position: absolute;
   width: var(--note-width);
@@ -497,6 +511,9 @@ svg {
   <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
     <input type="checkbox" id="autoFeatures"> Auto Ties
   </label>
+  <label class="tooltip" data-tooltip="Show Note Letters">
+    <input type="checkbox" id="toggleNoteLetters"> Letters
+  </label>
 
 </div>
 <div id="scoreInfo"></div>
@@ -562,10 +579,10 @@ svg {
   ondragstart="dragstartHandler(event)"
   ondblclick="showMenu(event)"
   draggable="true">
-    <div class="head"></div>
+    <div class="head"><span class="letter"></span></div>
     <div class="stem"></div>
     <div class="flag"></div>
-</div> 
+</div>
 <div class="beam"></div>
 
 <svg class="lineContainer"></svg>
@@ -1205,6 +1222,8 @@ function genStaffBlock(pitchSpace='e4', noteType='quarter') {
   noteClone.classList.add(noteType);
 
   const stepLetter = pitchSpace.replace(/\d+/, "");
+  const letterSpan = noteClone.querySelector('.letter');
+  if (letterSpan) letterSpan.textContent = stepLetter.toUpperCase();
   staffClone.dataset.letters = stepLetter;
   const plotSpace = staffClone.querySelector(`.${pitchSpace}`)
   if (plotSpace == null) return;
@@ -1219,6 +1238,8 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
   noteClone.classList.add(noteType);
 
   const stepLetter = pitchSpace.replace(/\d+/, "");
+  const letterSpan = noteClone.querySelector('.letter');
+  if (letterSpan) letterSpan.textContent = stepLetter.toUpperCase();
   existingStaffBlock.dataset.letters = existingStaffBlock.dataset.letters
     ? existingStaffBlock.dataset.letters + " " + stepLetter
     : stepLetter;
@@ -1494,6 +1515,8 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   // console.log(pitchSpace)
 
   const stepLetter = pitchSpace.replace(/\d+/, "");
+  const letterSpan = noteClone.querySelector('.letter');
+  if (letterSpan) letterSpan.textContent = stepLetter.toUpperCase();
   staffClone.dataset.letters = stepLetter;
   const plotSpace = staffClone.querySelector(`.${pitchSpace}`)
   if (plotSpace == null) return;
@@ -1513,6 +1536,10 @@ const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
 const autoFeatureToggle = document.getElementById('autoFeatures');
 if (autoFeatureToggle) {
   autoFeaturesEnabled = autoFeatureToggle.checked;
+}
+const noteLetterToggle = document.getElementById('toggleNoteLetters');
+if (noteLetterToggle && noteLetterToggle.checked) {
+  document.body.classList.add('show-note-letters');
 }
 
 
@@ -1556,6 +1583,11 @@ if (autoFeatureToggle) {
       document.querySelectorAll('.sheet .tieDiv').forEach(t => t.remove());
       highlightPhrase('');
     }
+  });
+}
+if (noteLetterToggle) {
+  noteLetterToggle.addEventListener('change', () => {
+    document.body.classList.toggle('show-note-letters', noteLetterToggle.checked);
   });
 }
 
