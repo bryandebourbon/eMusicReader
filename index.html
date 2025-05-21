@@ -470,14 +470,14 @@ svg {
   outline: 2px solid red;
 }
 
-.phrase-box {
+/* .phrase-box {
   position: absolute;
   pointer-events: none;
   border: 2px dashed blue;
 }
 .phrase-box.winner {
   border: 4px solid green;
-}
+} */
 
 /* .tie-under {
     border-color: green blue red yellow;
@@ -1384,30 +1384,12 @@ function highlightPhrase(p) {
 }
 
 function clearPhraseBoxes() {
-  phraseBoxes.forEach(b => b.remove());
-  phraseBoxes = [];
+  // Box drawing disabled
 }
 
 function drawPhraseBox(startIdx, endIdx, isWinner = false) {
-  const sheet = document.getElementById('zoomContainer');
-  const notes = noteElements.slice(startIdx, endIdx + 1);
-  if (!notes.length) return;
-  const rects = notes.map(n => n.getBoundingClientRect());
-  const sheetRect = sheet.getBoundingClientRect();
-  const left = Math.min(...rects.map(r => r.left)) - sheetRect.left + window.scrollX;
-  const top = Math.min(...rects.map(r => r.top)) - sheetRect.top + window.scrollY;
-  const right = Math.max(...rects.map(r => r.right)) - sheetRect.left + window.scrollX;
-  const bottom = Math.max(...rects.map(r => r.bottom)) - sheetRect.top + window.scrollY;
-
-  const box = document.createElement('div');
-  box.className = isWinner ? 'phrase-box winner' : 'phrase-box';
-  box.style.left = `${left}px`;
-  box.style.top = `${top}px`;
-  box.style.width = `${right - left}px`;
-  box.style.height = `${bottom - top}px`;
-  sheet.appendChild(box);
-  phraseBoxes.push(box);
-  return box;
+  // Box drawing disabled
+  return null;
 }
 
 function detectDescendingPatterns() {
@@ -1438,11 +1420,7 @@ function detectDescendingPatterns() {
 }
 
 function showDescendingBoxes() {
-  clearPhraseBoxes();
-  Object.values(detectedDescending).forEach(info => {
-    if (!info || !info.positions) return;
-    info.positions.forEach(pos => drawPhraseBox(pos, pos + info.length - 1));
-  });
+  // Box drawing disabled
 }
 
 function updatePhraseSelect() {
@@ -1511,12 +1489,7 @@ function findWinningPatterns(maxLen = 20) {
 }
 
 function showWinningBoxes() {
-  clearPhraseBoxes();
-  winningGroups.forEach(g => {
-    const info = allDetectedPatterns[g.winner];
-    if (!info) return;
-    info.positions.forEach(pos => drawPhraseBox(pos, pos + info.length - 1, true));
-  });
+  // Box drawing disabled
 }
 
 function addStaffBlock(pitchSpace='e4',noteType='quarter') {
