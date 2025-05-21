@@ -201,7 +201,7 @@ svg {
   position:relative;
   display: flex;
     flex-wrap: wrap;
-    overflow-y: hidden;
+    overflow-y: auto;
 }
 .measure {
   position: relative;
@@ -456,7 +456,7 @@ svg {
 .##.....##....##....##.....##.########
 ######################################
 -->
-<body onload="init();" style="touch-action:none" >
+<body onload="init();" style="touch-action:pan-y" >
 <div class="controls">
   <input
     id="xmlInput"
@@ -1574,6 +1574,8 @@ const sheetElement = document.querySelector(".sheet");
 let selecting = false;
 let startIndex = -1;
 let staffList = [];
+let startX = 0;
+let startY = 0;
 
 function clearSelection() {
   sheetElement.querySelectorAll(".staff.selected").forEach(el => el.classList.remove("selected"));
@@ -1596,13 +1598,14 @@ sheetElement.addEventListener("touchstart", e => {
   const el = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : e.target;
   const block = el && el.closest(".staff");
   if (!block) return;
+  startX = touch.clientX;
+  startY = touch.clientY;
   staffList = Array.from(sheetElement.querySelectorAll(".staff"));
   startIndex = staffList.indexOf(block);
   if (startIndex === -1) return;
   selecting = true;
   clearSelection();
   block.classList.add("selected");
-  e.preventDefault();
 });
 
 sheetElement.addEventListener("mousemove", e => {
@@ -1621,7 +1624,14 @@ sheetElement.addEventListener("mousemove", e => {
 sheetElement.addEventListener("touchmove", e => {
   if (!selecting) return;
   const touch = e.touches[0];
-  const el = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : e.target;
+  const dx = Math.abs(touch.clientX - startX);
+  const dy = Math.abs(touch.clientY - startY);
+  if (dy > dx) {
+    selecting = false;
+    clearSelection();
+    return; // allow scrolling
+  }
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
   const block = el && el.closest(".staff");
   if (!block) return;
   const idx = staffList.indexOf(block);
