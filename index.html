@@ -214,9 +214,13 @@ svg {
 .sheet {
   padding: 40px;
   position:relative;
+  overflow-y: auto;
+}
+
+#zoomContainer {
   display: flex;
-    flex-wrap: wrap;
-    overflow-y: auto;
+  flex-wrap: wrap;
+  transform-origin: 0 0;
 }
 .measure {
   position: relative;
@@ -518,7 +522,9 @@ svg {
 </div>
 <div id="scoreInfo"></div>
 
-<div class="sheet" id="zoomContainer"></div>
+<div class="sheet">
+  <div id="zoomContainer"></div>
+</div>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
@@ -667,7 +673,7 @@ function pointermoveHandler(ev) {
     if (prevDiff > 0) {
       const diffChange = curDiff - prevDiff;
       zoomLevel = Math.min(3, Math.max(0.5, zoomLevel + diffChange * 0.005));
-      zoomContainer.style.zoom = zoomLevel;
+      zoomContainer.style.transform = `scale(${zoomLevel})`;
       if (autoFeaturesEnabled) tieify();
     }
     prevDiff = curDiff;
@@ -692,13 +698,13 @@ let zoomLevel = 1;
 
 document.getElementById('zoomIn').addEventListener('click', () => {
   zoomLevel += 0.1;
-  zoomContainer.style.zoom = zoomLevel;
+  zoomContainer.style.transform = `scale(${zoomLevel})`;
   if (autoFeaturesEnabled) tieify();
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
   zoomLevel -= 0.1;
-  zoomContainer.style.zoom = zoomLevel;
+  zoomContainer.style.transform = `scale(${zoomLevel})`;
   if (autoFeaturesEnabled) tieify();
 
 });
@@ -824,7 +830,7 @@ function tieify() {
 
       tieDiv.style.width = `${stop.left - start.left}px`;
 
-      document.querySelector('.sheet').appendChild(tieDiv);
+      document.getElementById('zoomContainer').appendChild(tieDiv);
     }
   });
 }
@@ -1176,7 +1182,7 @@ function populateStaffFromMusicXML(xmlDoc) {
   displayScoreInfo(parseScoreInfo(xmlDoc));
 
   const parts = xmlDoc.getElementsByTagName("part");
-  const sheet = document.querySelector('.sheet');
+  const sheet = document.getElementById('zoomContainer');
   sheet.innerHTML = '';
 
   const measuresByPart = Array.from(parts).map(p => p.getElementsByTagName("measure"));
@@ -1376,7 +1382,7 @@ function clearPhraseBoxes() {
 }
 
 function drawPhraseBox(startIdx, endIdx, isWinner = false) {
-  const sheet = document.querySelector('.sheet');
+  const sheet = document.getElementById('zoomContainer');
   const notes = noteElements.slice(startIdx, endIdx + 1);
   if (!notes.length) return;
   const rects = notes.map(n => n.getBoundingClientRect());
@@ -1521,7 +1527,7 @@ function addStaffBlock(pitchSpace='e4',noteType='quarter') {
   const plotSpace = staffClone.querySelector(`.${pitchSpace}`)
   if (plotSpace == null) return;
   plotSpace.appendChild(noteClone);
-  document.querySelector('.sheet')
+  document.getElementById('zoomContainer')
   .appendChild(staffClone);
 }
 
