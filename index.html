@@ -28,7 +28,7 @@ listening for notes and plotting them
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
 <!-- <meta http-equiv="refresh" content="10"> -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -465,7 +465,7 @@ svg {
 .##.....##....##....##.....##.########
 ######################################
 -->
-<body onload="init();" style="touch-action:pan-y" >
+<body onload="init();" style="touch-action:pan-y; overscroll-behavior:contain" >
 <div class="controls">
   <input
     id="xmlInput"
@@ -582,6 +582,16 @@ svg {
 let evCache = [];
 let prevDiff = -1;
 
+// Prevent Safari pinch gestures from triggering browser zoom or tab view
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend', e => e.preventDefault());
+document.addEventListener('touchstart', e => {
+  if (e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, {passive: false});
+
 // Global arrays for melody pattern detection
 let noteSteps = [];
 let notePitches = [];
@@ -611,48 +621,41 @@ function init() {
 }
 function pointerdownHandler(ev) {
   evCache.push(ev);
-  console.log("pointerDown", ev);
-  console.log(evCache)
 }
 
 function pointermoveHandler(ev) {
 
-  console.log("pointerMove", ev);
+  // Update stored pointer event
+  for (let i = 0; i < evCache.length; i++) {
+    if (evCache[i].pointerId === ev.pointerId) {
+      evCache[i] = ev;
+      break;
+    }
+  }
 
   // If two pointers are down, check for pinch gestures
   if (evCache.length === 2) {
     // Calculate the distance between the two pointers
-    const curDiff = Math.abs(evCache[0].clientX - evCache[1].clientX);
-console.log(curDiff)
-console.log(prevDiff)
-    if (prevDiff > 0) {
-      if (curDiff > 70) {
-        // The distance between the two pointers has increased
-        console.log("Pinch moving OUT -> Zoom in", ev);
-          zoomLevel += 0.1;
-        zoomContainer.style.zoom = zoomLevel;
-        if (autoFeaturesEnabled) tieify();
-      }
-      if (curDiff < prevDiff) {
-        // The distance between the two pointers has decreased
-        console.log("Pinch moving IN -> Zoom out", ev);
-          zoomLevel -= 0.1;
-  zoomContainer.style.zoom = zoomLevel;
-  if (autoFeaturesEnabled) tieify();
-      }
-    } 
-      prevDiff = curDiff;
-    
+    const curDiff = Math.hypot(
+      evCache[0].clientX - evCache[1].clientX,
+      evCache[0].clientY - evCache[1].clientY
+    );
 
-    // Cache the distance for the next move event
-    
+    if (prevDiff > 0) {
+      const diffChange = curDiff - prevDiff;
+      zoomLevel = Math.min(3, Math.max(0.5, zoomLevel + diffChange * 0.005));
+      zoomContainer.style.zoom = zoomLevel;
+      if (autoFeaturesEnabled) tieify();
+    }
+    prevDiff = curDiff;
   }
 }
-  
+
 function pointerupHandler(ev) {
-  prevDiff = -1;
-  evCache = []
-  console.log(evCache)
+  evCache = evCache.filter(e => e.pointerId !== ev.pointerId);
+  if (evCache.length < 2) {
+    prevDiff = -1;
+  }
 }
 
 
