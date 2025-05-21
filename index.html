@@ -611,48 +611,41 @@ function init() {
 }
 function pointerdownHandler(ev) {
   evCache.push(ev);
-  console.log("pointerDown", ev);
-  console.log(evCache)
 }
 
 function pointermoveHandler(ev) {
 
-  console.log("pointerMove", ev);
+  // Update stored pointer event
+  for (let i = 0; i < evCache.length; i++) {
+    if (evCache[i].pointerId === ev.pointerId) {
+      evCache[i] = ev;
+      break;
+    }
+  }
 
   // If two pointers are down, check for pinch gestures
   if (evCache.length === 2) {
     // Calculate the distance between the two pointers
-    const curDiff = Math.abs(evCache[0].clientX - evCache[1].clientX);
-console.log(curDiff)
-console.log(prevDiff)
-    if (prevDiff > 0) {
-      if (curDiff > 70) {
-        // The distance between the two pointers has increased
-        console.log("Pinch moving OUT -> Zoom in", ev);
-          zoomLevel += 0.1;
-        zoomContainer.style.zoom = zoomLevel;
-        if (autoFeaturesEnabled) tieify();
-      }
-      if (curDiff < prevDiff) {
-        // The distance between the two pointers has decreased
-        console.log("Pinch moving IN -> Zoom out", ev);
-          zoomLevel -= 0.1;
-  zoomContainer.style.zoom = zoomLevel;
-  if (autoFeaturesEnabled) tieify();
-      }
-    } 
-      prevDiff = curDiff;
-    
+    const curDiff = Math.hypot(
+      evCache[0].clientX - evCache[1].clientX,
+      evCache[0].clientY - evCache[1].clientY
+    );
 
-    // Cache the distance for the next move event
-    
+    if (prevDiff > 0) {
+      const diffChange = curDiff - prevDiff;
+      zoomLevel = Math.min(3, Math.max(0.5, zoomLevel + diffChange * 0.005));
+      zoomContainer.style.zoom = zoomLevel;
+      if (autoFeaturesEnabled) tieify();
+    }
+    prevDiff = curDiff;
   }
 }
-  
+
 function pointerupHandler(ev) {
-  prevDiff = -1;
-  evCache = []
-  console.log(evCache)
+  evCache = evCache.filter(e => e.pointerId !== ev.pointerId);
+  if (evCache.length < 2) {
+    prevDiff = -1;
+  }
 }
 
 
