@@ -256,6 +256,9 @@ svg {
 .staff.selected {
   outline: 2px solid blue;
 }
+.staff.playing {
+  outline: 2px solid orange;
+}
 .staff.show-letters .note .letter {
   display: block;
 }
@@ -536,6 +539,8 @@ svg {
     <input type="range" id="darkOpacity" min="60" max="100" value="75">
   </label>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
+  <button id="playStaff" class="tooltip" data-tooltip="Play"><i class="fa-solid fa-play"></i></button>
+  <input id="stayTime" type="number" min="0.1" step="0.1" value="1" title="Highlight Stay Time (s)" style="width:3em;">
   <div id="extraControls">
     <button id="prevPage" class="tooltip" data-tooltip="Previous Page"><i class="fa-solid fa-arrow-left"></i></button>
     <button id="nextPage" class="tooltip" data-tooltip="Next Page"><i class="fa-solid fa-arrow-right"></i></button>
@@ -1652,6 +1657,52 @@ if (phraseBoxToggle) {
   phraseBoxToggle.addEventListener('change', () => {
     phraseBoxesEnabled = phraseBoxToggle.checked;
     if (!phraseBoxesEnabled) clearPhraseBoxes();
+  });
+}
+
+const playBtn = document.getElementById('playStaff');
+const stayTimeInput = document.getElementById('stayTime');
+let playing = false;
+let playTimeoutId;
+
+if (playBtn) {
+  playBtn.addEventListener('click', () => {
+    if (playing) {
+      playing = false;
+      clearTimeout(playTimeoutId);
+      document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
+      const icon = playBtn.querySelector('i');
+      if (icon) {
+        icon.classList.remove('fa-stop');
+        icon.classList.add('fa-play');
+      }
+      return;
+    }
+    playing = true;
+    const icon = playBtn.querySelector('i');
+    if (icon) {
+      icon.classList.remove('fa-play');
+      icon.classList.add('fa-stop');
+    }
+    const blocks = Array.from(document.querySelectorAll('#zoomContainer .staff'));
+    const delay = Math.max(0.1, parseFloat(stayTimeInput.value) || 1) * 1000;
+    let idx = 0;
+    function step() {
+      if (!playing) return;
+      document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
+      if (idx >= blocks.length) {
+        playing = false;
+        if (icon) {
+          icon.classList.remove('fa-stop');
+          icon.classList.add('fa-play');
+        }
+        return;
+      }
+      blocks[idx].classList.add('playing');
+      idx++;
+      playTimeoutId = setTimeout(step, delay);
+    }
+    step();
   });
 }
 
