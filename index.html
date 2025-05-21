@@ -748,6 +748,10 @@ document.getElementById('useDefaultFile').addEventListener('click', function() {
       const xmlDoc = parser.parseFromString(data,"text/xml");
       displayScoreInfo(parseScoreInfo(xmlDoc));
       populateStaffFromMusicXML(xmlDoc);
+      requestAnimationFrame(() => {
+        beamify();
+        tieify();
+      });
     })
     .catch(error => console.error('Error loading the default file:', error));
 });
