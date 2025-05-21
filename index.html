@@ -141,6 +141,12 @@ svg {
     padding: 4px;
     z-index: 10;
   }
+  #extraControls {
+    display: none;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
   .controls button,
   .controls i,
   .controls select {
@@ -511,7 +517,7 @@ svg {
     type="file"
     onchange="fileHandler(event)"/>
 
-  <button id="useDefaultFile" class="tooltip" data-tooltip="Use Default File"><i class="fa-solid fa-file-lines"></i></button>
+  <button id="toggleExtraControls" class="tooltip" data-tooltip="Extra Controls"><i class="fa-solid fa-gear"></i></button>
   <button onclick="addStaffBlock()" class="tooltip" data-tooltip="Add Staff"><i class="fa-solid fa-plus"></i></button>
   <button id="zoomIn" class="tooltip" data-tooltip="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
   <button id="zoomOut" class="tooltip" data-tooltip="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
@@ -523,19 +529,21 @@ svg {
     <input type="range" id="darkOpacity" min="60" max="100" value="75">
   </label>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
-  <button id="prevPage" class="tooltip" data-tooltip="Previous Page"><i class="fa-solid fa-arrow-left"></i></button>
-  <button id="nextPage" class="tooltip" data-tooltip="Next Page"><i class="fa-solid fa-arrow-right"></i></button>
-  <button id="runDetect" title="Run Detect Again">Detect</button>
-  <select id="phraseSelect" title="Detected Melodies"></select>
-  <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
-    <input type="checkbox" id="autoFeatures"> Auto Ties
-  </label>
-  <label class="tooltip" data-tooltip="Show Note Letters">
-    <input type="checkbox" id="toggleNoteLetters"> Letters
-  </label>
-  <label class="tooltip" data-tooltip="Show Melody Boxes">
-    <input type="checkbox" id="togglePhraseBoxes"> Boxes
-  </label>
+  <div id="extraControls">
+    <button id="prevPage" class="tooltip" data-tooltip="Previous Page"><i class="fa-solid fa-arrow-left"></i></button>
+    <button id="nextPage" class="tooltip" data-tooltip="Next Page"><i class="fa-solid fa-arrow-right"></i></button>
+    <button id="runDetect" title="Run Detect Again">Detect</button>
+    <select id="phraseSelect" title="Detected Melodies"></select>
+    <label class="tooltip" data-tooltip="Toggle Automatic Labels/Ties">
+      <input type="checkbox" id="autoFeatures"> Auto Ties
+    </label>
+    <label class="tooltip" data-tooltip="Show Note Letters">
+      <input type="checkbox" id="toggleNoteLetters"> Letters
+    </label>
+    <label class="tooltip" data-tooltip="Show Melody Boxes">
+      <input type="checkbox" id="togglePhraseBoxes"> Boxes
+    </label>
+  </div>
 
 </div>
 <div id="scoreInfo"></div>
@@ -667,6 +675,7 @@ function init() {
   el.onpointercancel = pointerupHandler;
   el.onpointerout = pointerupHandler;
   el.onpointerleave = pointerupHandler;
+  loadDefaultFile();
 }
 function pointerdownHandler(ev) {
   evCache.push(ev);
@@ -740,17 +749,17 @@ document.getElementById('renderBeams').addEventListener('click', () => {
   });
 });
 
-document.getElementById('useDefaultFile').addEventListener('click', function() {
-  fetch('ddd.xml') // Adjust the path if your XML file is in a specific directory
+function loadDefaultFile() {
+  fetch('ddd.xml')
     .then(response => response.text())
     .then(data => {
       const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(data,"text/xml");
+      const xmlDoc = parser.parseFromString(data,'text/xml');
       displayScoreInfo(parseScoreInfo(xmlDoc));
       populateStaffFromMusicXML(xmlDoc);
     })
     .catch(error => console.error('Error loading the default file:', error));
-});
+}
 
  
 /*
@@ -1561,6 +1570,7 @@ const closeSettings = document.getElementById('closeSettings');
 const darkModeToggle = document.getElementById('toggleDarkMode');
 
 const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
+const toggleExtraControlsBtn = document.getElementById('toggleExtraControls');
 
 const autoFeatureToggle = document.getElementById('autoFeatures');
 if (autoFeatureToggle) {
@@ -1603,6 +1613,14 @@ if (toggleScoreInfoBtn) {
     const div = document.getElementById('scoreInfo');
     if (!div) return;
     div.style.display = div.style.display === 'none' ? '' : 'none';
+  });
+}
+if (toggleExtraControlsBtn) {
+  toggleExtraControlsBtn.addEventListener('click', () => {
+    const div = document.getElementById('extraControls');
+    if (!div) return;
+    div.style.display = div.style.display === 'none' ? 'flex' : 'none';
+    updatePageHeight();
   });
 }
 
