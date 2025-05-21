@@ -250,6 +250,9 @@ svg {
 .staff.selected {
   outline: 2px solid blue;
 }
+.staff.show-letters .note .letter {
+  display: block;
+}
 
 .line {
   background-color: var(--line-color);
@@ -1647,8 +1650,18 @@ let staffList = [];
 let startX = 0;
 let startY = 0;
 
+function updateTempLetters() {
+  sheetElement.querySelectorAll('.staff.show-letters').forEach(el => el.classList.remove('show-letters'));
+  sheetElement.querySelectorAll('.staff.selected').forEach(el => el.classList.add('show-letters'));
+}
+
+function clearTempLetters() {
+  sheetElement.querySelectorAll('.staff.show-letters').forEach(el => el.classList.remove('show-letters'));
+}
+
 function clearSelection() {
   sheetElement.querySelectorAll(".staff.selected").forEach(el => el.classList.remove("selected"));
+  sheetElement.querySelectorAll('.staff.show-letters').forEach(el => el.classList.remove('show-letters'));
 }
 
 sheetElement.addEventListener("mousedown", e => {
@@ -1660,6 +1673,7 @@ sheetElement.addEventListener("mousedown", e => {
   selecting = true;
   clearSelection();
   block.classList.add("selected");
+  updateTempLetters();
   e.preventDefault();
 });
 
@@ -1676,6 +1690,7 @@ sheetElement.addEventListener("touchstart", e => {
   selecting = true;
   clearSelection();
   block.classList.add("selected");
+  updateTempLetters();
 });
 
 sheetElement.addEventListener("mousemove", e => {
@@ -1689,6 +1704,7 @@ sheetElement.addEventListener("mousemove", e => {
   for (let i = start; i <= end; i++) {
     staffList[i].classList.add("selected");
   }
+  updateTempLetters();
 });
 
 sheetElement.addEventListener("touchmove", e => {
@@ -1711,6 +1727,7 @@ sheetElement.addEventListener("touchmove", e => {
   for (let i = start; i <= end; i++) {
     staffList[i].classList.add("selected");
   }
+  updateTempLetters();
   e.preventDefault();
 });
 
@@ -1749,6 +1766,7 @@ document.addEventListener("mouseup", () => {
   if (selecting) {
     highlightExactFromSelection();
   }
+  clearTempLetters();
   selecting = false;
 });
 
@@ -1756,10 +1774,12 @@ document.addEventListener("touchend", () => {
   if (selecting) {
     highlightExactFromSelection();
   }
+  clearTempLetters();
   selecting = false;
 });
 
 document.addEventListener("touchcancel", () => {
+  clearTempLetters();
   selecting = false;
 });
 
