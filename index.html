@@ -64,14 +64,16 @@ listening for notes and plotting them
   --flag-width: 0.3em;
 
   --tie-thickness:0;
+  --dark-opacity: 1;
 }
 
 @media (prefers-color-scheme: dark) {
-  
+
   :root {
     --space-color: black;
     --line-color: white;
     --note-color: white;
+    --dark-opacity: 0.75;
   }
 
   body {
@@ -84,10 +86,17 @@ listening for notes and plotting them
   --space-color: black;
   --line-color: white;
   --note-color: white;
+  --dark-opacity: 0.75;
 }
 
 body.dark-mode {
   background-color: black;
+}
+.dark-mode .sheet {
+  opacity: var(--dark-opacity);
+}
+input[type="range"] {
+  accent-color: var(--line-color);
 }
 html, body {
   display: flex;
@@ -471,6 +480,9 @@ svg {
   <button id="renderBeams" class="tooltip" data-tooltip="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
   <button id="openSettings" class="tooltip" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></button>
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+  <label class="tooltip" data-tooltip="Note opacity (dark mode)">
+    <input type="range" id="darkOpacity" min="60" max="100" value="75">
+  </label>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
   <button id="prevPage" class="tooltip" data-tooltip="Previous Page"><i class="fa-solid fa-arrow-left"></i></button>
   <button id="nextPage" class="tooltip" data-tooltip="Next Page"><i class="fa-solid fa-arrow-right"></i></button>
@@ -1570,6 +1582,17 @@ numericSettings.forEach(s => {
     if (autoFeaturesEnabled) tieify();
   });
 });
+
+const darkOpacitySlider = document.getElementById('darkOpacity');
+if (darkOpacitySlider) {
+  function updateDarkOpacity() {
+    const value = darkOpacitySlider.value / 100;
+    document.documentElement.style.setProperty('--dark-opacity', value);
+    document.body.style.setProperty('--dark-opacity', value);
+  }
+  darkOpacitySlider.addEventListener('input', updateDarkOpacity);
+  updateDarkOpacity();
+}
 const sheetElement = document.querySelector(".sheet");
 let selecting = false;
 let startIndex = -1;
