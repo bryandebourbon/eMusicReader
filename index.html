@@ -346,6 +346,10 @@ svg {
 .note.phrase-highlight .letter {
   display: block;
   color: red;
+  text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+.dark-mode .note.phrase-highlight .letter {
+  text-shadow: 0 0 2px rgba(255,255,255,0.5);
 }
 .note.whole > .head {
   position: absolute;
@@ -474,14 +478,14 @@ svg {
   outline: 2px solid red;
 }
 
-/* .phrase-box {
+.phrase-box {
   position: absolute;
   pointer-events: none;
   border: 2px dashed blue;
 }
 .phrase-box.winner {
   border: 4px solid green;
-} */
+}
 
 /* .tie-under {
     border-color: green blue red yellow;
@@ -528,6 +532,9 @@ svg {
   </label>
   <label class="tooltip" data-tooltip="Show Note Letters">
     <input type="checkbox" id="toggleNoteLetters"> Letters
+  </label>
+  <label class="tooltip" data-tooltip="Show Melody Boxes">
+    <input type="checkbox" id="togglePhraseBoxes"> Boxes
   </label>
 
 </div>
@@ -642,6 +649,8 @@ let detectedPatterns = {};
 
 let detectedDescending = {};
 let phraseBoxes = [];
+
+let phraseBoxesEnabled = false;
 
 let allDetectedPatterns = {};
 let winningGroups = [];
@@ -1388,12 +1397,31 @@ function highlightPhrase(p) {
 }
 
 function clearPhraseBoxes() {
-  // Box drawing disabled
+  phraseBoxes.forEach(b => b.remove());
+  phraseBoxes = [];
 }
 
 function drawPhraseBox(startIdx, endIdx, isWinner = false) {
-  // Box drawing disabled
-  return null;
+  if (!phraseBoxesEnabled) return null;
+  const sheet = document.getElementById('zoomContainer');
+  const notes = noteElements.slice(startIdx, endIdx + 1);
+  if (!notes.length) return null;
+  const rects = notes.map(n => n.getBoundingClientRect());
+  const sheetRect = sheet.getBoundingClientRect();
+  const left = Math.min(...rects.map(r => r.left)) - sheetRect.left + window.scrollX;
+  const top = Math.min(...rects.map(r => r.top)) - sheetRect.top + window.scrollY;
+  const right = Math.max(...rects.map(r => r.right)) - sheetRect.left + window.scrollX;
+  const bottom = Math.max(...rects.map(r => r.bottom)) - sheetRect.top + window.scrollY;
+
+  const box = document.createElement('div');
+  box.className = isWinner ? 'phrase-box winner' : 'phrase-box';
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.width = `${right - left}px`;
+  box.style.height = `${bottom - top}px`;
+  sheet.appendChild(box);
+  phraseBoxes.push(box);
+  return box;
 }
 
 function detectDescendingPatterns() {
@@ -1424,7 +1452,12 @@ function detectDescendingPatterns() {
 }
 
 function showDescendingBoxes() {
-  // Box drawing disabled
+  if (!phraseBoxesEnabled) return;
+  clearPhraseBoxes();
+  Object.values(detectedDescending).forEach(info => {
+    if (!info || !info.positions) return;
+    info.positions.forEach(pos => drawPhraseBox(pos, pos + info.length - 1));
+  });
 }
 
 function updatePhraseSelect() {
@@ -1493,7 +1526,13 @@ function findWinningPatterns(maxLen = 20) {
 }
 
 function showWinningBoxes() {
-  // Box drawing disabled
+  if (!phraseBoxesEnabled) return;
+  clearPhraseBoxes();
+  winningGroups.forEach(g => {
+    const info = allDetectedPatterns[g.winner];
+    if (!info) return;
+    info.positions.forEach(pos => drawPhraseBox(pos, pos + info.length - 1, true));
+  });
 }
 
 function addStaffBlock(pitchSpace='e4',noteType='quarter') {
@@ -1530,6 +1569,10 @@ if (autoFeatureToggle) {
 const noteLetterToggle = document.getElementById('toggleNoteLetters');
 if (noteLetterToggle && noteLetterToggle.checked) {
   document.body.classList.add('show-note-letters');
+}
+const phraseBoxToggle = document.getElementById('togglePhraseBoxes');
+if (phraseBoxToggle) {
+  phraseBoxesEnabled = phraseBoxToggle.checked;
 }
 
 
@@ -1578,6 +1621,12 @@ if (autoFeatureToggle) {
 if (noteLetterToggle) {
   noteLetterToggle.addEventListener('change', () => {
     document.body.classList.toggle('show-note-letters', noteLetterToggle.checked);
+  });
+}
+if (phraseBoxToggle) {
+  phraseBoxToggle.addEventListener('change', () => {
+    phraseBoxesEnabled = phraseBoxToggle.checked;
+    if (!phraseBoxesEnabled) clearPhraseBoxes();
   });
 }
 
