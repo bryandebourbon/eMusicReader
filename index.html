@@ -333,6 +333,8 @@ svg {
   font-size: 0.7em;
   line-height: 1;
   color: var(--space-color);
+  text-shadow: 0 0 2px var(--line-color);
+  z-index: 5;
   user-select: none;
   display: none;
 }
@@ -346,10 +348,10 @@ svg {
 .note.phrase-highlight .letter {
   display: block;
   color: red;
-  text-shadow: 0 0 2px rgba(0,0,0,0.5);
+  text-shadow: 0 0 2px var(--space-color), 0 0 2px rgba(0,0,0,0.5);
 }
 .dark-mode .note.phrase-highlight .letter {
-  text-shadow: 0 0 2px rgba(255,255,255,0.5);
+  text-shadow: 0 0 2px var(--line-color), 0 0 2px rgba(255,255,255,0.5);
 }
 .note.whole > .head {
   position: absolute;
