@@ -35,3 +35,22 @@ This site now includes a web manifest and service worker so it can be installed 
 ## iPhone Support
 
 The Web Audio API used for playback is compatible with Safari on iOS. Tap the play button to start audio—the app will resume the underlying `AudioContext` if it is suspended. Add the site to your home screen to install it as a Progressive Web App on iPhone.
+
+## Architecture
+
+The app is a static site that runs entirely in the browser. A service worker caches
+the core assets so it works offline, and a web manifest makes it installable as a
+Progressive Web App.
+
+```mermaid
+graph TD
+    user[User] -->|loads| browser[Browser]
+    browser -->|fetch| gh[GitHub Pages]
+    gh --> index[index.html & JS]
+    browser --> sw[Service Worker]
+    sw --> cache[Cache API]
+    index --> jszip[JSZip]
+    jszip -->|unzip| score[MusicXML/MXL]
+    index --> audio[Web Audio API]
+    index --> manifest[Web Manifest]
+```
