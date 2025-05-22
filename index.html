@@ -540,6 +540,7 @@ svg {
   </label>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
   <button id="playStaff" class="tooltip" data-tooltip="Play"><i class="fa-solid fa-play"></i></button>
+  <button id="toggleSound" class="tooltip" data-tooltip="Toggle Sound"><i class="fa-solid fa-volume-high"></i></button>
   <input id="stayTime" type="number" min="0.1" step="0.1" value="1" title="Whole Note Time (s)" style="width:3em;">
   <div id="extraControls">
     <button id="prevPage" class="tooltip" data-tooltip="Previous Page"><i class="fa-solid fa-arrow-left"></i></button>
@@ -1268,6 +1269,8 @@ function genStaffBlock(pitchSpace='e4', noteType='quarter') {
   noteClone.id = Math.random();
   noteClone.classList.add(noteType);
 
+  noteClone.dataset.pitch = pitchSpace;
+
   const stepLetter = pitchSpace.replace(/\d+/, "");
   const letterSpan = noteClone.querySelector('.letter');
   if (letterSpan) letterSpan.textContent = stepLetter.toUpperCase();
@@ -1283,6 +1286,8 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
   const noteClone = assets.querySelector('.note').cloneNode(true);
   noteClone.id = Math.random();
   noteClone.classList.add(noteType);
+
+  noteClone.dataset.pitch = pitchSpace;
 
   const stepLetter = pitchSpace.replace(/\d+/, "");
   const letterSpan = noteClone.querySelector('.letter');
@@ -1597,6 +1602,44 @@ if (phraseBoxToggle) {
   phraseBoxesEnabled = phraseBoxToggle.checked;
 }
 
+const toggleSoundBtn = document.getElementById('toggleSound');
+let soundEnabled = true;
+let audioCtx;
+if (toggleSoundBtn) {
+  toggleSoundBtn.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    const icon = toggleSoundBtn.querySelector('i');
+    if (icon) {
+      icon.classList.toggle('fa-volume-high', soundEnabled);
+      icon.classList.toggle('fa-volume-xmark', !soundEnabled);
+    }
+  });
+}
+
+function noteToFreq(note) {
+  const match = note.match(/^([a-gA-G])(\d)$/);
+  if (!match) return null;
+  const step = match[1].toUpperCase();
+  const octave = parseInt(match[2]);
+  const semitoneMap = {C:0, D:2, E:4, F:5, G:7, A:9, B:11};
+  const semitone = semitoneMap[step];
+  if (semitone === undefined) return null;
+  const midi = (octave + 1) * 12 + semitone;
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+function playFreq(freq, duration) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
 
 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.documentElement.classList.add('dark-mode');
@@ -1713,6 +1756,10 @@ if (playBtn) {
         Object.keys(rhythm).forEach(k => {
           if (note.classList.contains(k)) factor = rhythm[k];
         });
+        if (soundEnabled && note.dataset.pitch) {
+          const freq = noteToFreq(note.dataset.pitch);
+          if (freq) playFreq(freq, (baseDelay * factor) / 1000);
+        }
       }
       idx++;
       const delay = baseDelay * factor;
