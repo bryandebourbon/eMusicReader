@@ -1329,10 +1329,32 @@ function parseAndPopulate(text) {
 function loadFile(file) {
   if (!file) return;
   if (file.name.toLowerCase().endsWith('.mxl')) {
-    JSZip.loadAsync(file).then(zip => {
-      const xmlName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.xml'));
-      if (!xmlName) throw new Error('No XML file found in archive');
-      return zip.file(xmlName).async('string');
+    JSZip.loadAsync(file).then(async zip => {
+      // Prefer XML files that live at the root of the archive
+      let xmlPath = Object.keys(zip.files).find(name => {
+        const lower = name.toLowerCase();
+        return (lower.endsWith('.xml') || lower.endsWith('.musicxml')) &&
+               !name.includes('/') && lower !== 'container.xml';
+      });
+
+      // Fallback: look for META-INF/container.xml to resolve packaged path
+      if (!xmlPath) {
+        const container = zip.file(/META-INF\/container\.xml/i);
+        if (container && container.length) {
+          const containerXML = await container[0].async('string');
+          const doc = new DOMParser().parseFromString(containerXML, 'text/xml');
+          const rootfile = doc.querySelector('rootfile');
+          if (rootfile) xmlPath = rootfile.getAttribute('full-path');
+        }
+      }
+
+      // Final fallback: any XML anywhere in the archive
+      if (!xmlPath) {
+        xmlPath = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.xml') || n.toLowerCase().endsWith('.musicxml'));
+      }
+
+      if (!xmlPath) throw new Error('No XML file found in archive');
+      return zip.file(xmlPath).async('string');
     }).then(parseAndPopulate)
       .catch(err => console.error('Error loading MXL file:', err));
   } else {
