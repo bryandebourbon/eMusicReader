@@ -25,3 +25,7 @@ Scrolling is disabled so swipe gestures work reliably. Use the new left and righ
 ## Progressive Web App
 
 This site now includes a web manifest and service worker so it can be installed on mobile and desktop browsers. Add it to your home screen to use it like a native app.
+
+## iPhone Support
+
+The Web Audio API used for playback is compatible with Safari on iOS. Tap the play button to start audio—the app will resume the underlying `AudioContext` if it is suspended. Add the site to your home screen to install it as a Progressive Web App on iPhone.
