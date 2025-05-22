@@ -1630,6 +1630,13 @@ function noteToFreq(note) {
 
 function playFreq(freq, duration) {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') {
+    try {
+      audioCtx.resume();
+    } catch (e) {
+      console.warn('Failed to resume AudioContext', e);
+    }
+  }
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = 'sine';
