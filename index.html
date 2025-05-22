@@ -509,6 +509,7 @@ svg {
 } */
 
 </style>
+<script src="jszip.min.js"></script>
 </head>
 <!--
 .##.....##.########.##.....##.##......
@@ -659,6 +660,13 @@ document.addEventListener('touchstart', e => {
     e.preventDefault();
   }
 }, {passive: false});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  if (e.dataTransfer.files && e.dataTransfer.files.length) {
+    loadFile(e.dataTransfer.files[0]);
+  }
+});
 
 // Global arrays for melody pattern detection
 let noteSteps = [];
@@ -1310,18 +1318,33 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
 ###  #  ### # #  #  ##
 */
 
-function fileHandler(event) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    const parser = new DOMParser();
-    const xmlDoc = parser
-      .parseFromString(reader.result,"text/xml");
-    displayScoreInfo(parseScoreInfo(xmlDoc));
-    populateStaffFromMusicXML(xmlDoc);
-    if (autoFeaturesEnabled) requestAnimationFrame(tieify);
+function parseAndPopulate(text) {
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(text, "text/xml");
+  displayScoreInfo(parseScoreInfo(xmlDoc));
+  populateStaffFromMusicXML(xmlDoc);
+  if (autoFeaturesEnabled) requestAnimationFrame(tieify);
+}
+
+function loadFile(file) {
+  if (!file) return;
+  if (file.name.toLowerCase().endsWith('.mxl')) {
+    JSZip.loadAsync(file).then(zip => {
+      const xmlName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.xml'));
+      if (!xmlName) throw new Error('No XML file found in archive');
+      return zip.file(xmlName).async('string');
+    }).then(parseAndPopulate)
+      .catch(err => console.error('Error loading MXL file:', err));
+  } else {
+    const reader = new FileReader();
+    reader.onload = () => parseAndPopulate(reader.result);
+    reader.readAsText(file);
   }
-  console.log(event.target.files[0])
-  reader.readAsText(event.target.files[0]);
+}
+
+function fileHandler(event) {
+  const file = event.target.files[0];
+  loadFile(file);
 }
 
 function showMenu(e) {
