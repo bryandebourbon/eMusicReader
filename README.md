@@ -22,6 +22,10 @@ You can swipe across the staffs on mobile devices to select a phrase. When you l
 
 Scrolling is disabled so swipe gestures work reliably. Use the new left and right arrows to move between pages. Each page spans exactly one screen height.
 
+## Importing Scores
+
+Drag a `.musicxml` or `.mxl` file onto the page to load a new score. MXL archives are unzipped automatically, and the first top-level XML file is used.
+
 ## Progressive Web App
 
 This site now includes a web manifest and service worker so it can be installed on mobile and desktop browsers. Add it to your home screen to use it like a native app.
