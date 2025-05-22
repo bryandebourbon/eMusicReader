@@ -13,6 +13,12 @@ https://htmlpreview.github.io/?https://raw.githubusercontent.com/<USER>/<REPO>/<
 Replace `<USER>`, `<REPO>` and `<BRANCH>` with the appropriate values to get a
 clickable link for testing a pull request.
 
+## Importing Scores
+
+Drag and drop a `.musicxml` or `.mxl` file onto the page or select it with the
+file picker. `.mxl` files are zipped archives—JSZip is bundled locally as
+`jszip.min.js` to unzip them in the browser.
+
 ## Touch Support
 
 You can swipe across the staffs on mobile devices to select a phrase. When you lift your finger, all matching phrases in the score will be highlighted.
