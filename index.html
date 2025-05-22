@@ -147,6 +147,14 @@ svg {
     flex-wrap: wrap;
     gap: 4px;
   }
+  #libraryBar {
+    display: none;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 4px;
+    background-color: var(--space-color);
+  }
   .controls button,
   .controls i,
   .controls select {
@@ -529,6 +537,7 @@ svg {
     onchange="fileHandler(event)"/>
 
   <button id="toggleExtraControls" class="tooltip" data-tooltip="Extra Controls"><i class="fa-solid fa-gear"></i></button>
+  <button id="toggleLibrary" class="tooltip" data-tooltip="Library"><i class="fa-solid fa-book"></i></button>
   <button onclick="addStaffBlock()" class="tooltip" data-tooltip="Add Staff"><i class="fa-solid fa-plus"></i></button>
   <button id="zoomIn" class="tooltip" data-tooltip="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
   <button id="zoomOut" class="tooltip" data-tooltip="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
@@ -558,6 +567,7 @@ svg {
       <input type="checkbox" id="togglePhraseBoxes"> Boxes
     </label>
   </div>
+  <div id="libraryBar"></div>
 
 </div>
 <div id="scoreInfo"></div>
@@ -686,6 +696,34 @@ let winningGroups = [];
 
 let autoFeaturesEnabled = false;
 
+let library = [];
+
+function loadLibrary() {
+  library = JSON.parse(localStorage.getItem('xmlLibrary') || '[]');
+  renderLibrary();
+}
+
+function saveToLibrary(name, data) {
+  const existingIndex = library.findIndex(f => f.name === name);
+  if (existingIndex !== -1) library.splice(existingIndex, 1);
+  library.unshift({ name, data });
+  if (library.length > 10) library.pop();
+  localStorage.setItem('xmlLibrary', JSON.stringify(library));
+  renderLibrary();
+}
+
+function renderLibrary() {
+  const bar = document.getElementById('libraryBar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  library.forEach(item => {
+    const btn = document.createElement('button');
+    btn.textContent = item.name;
+    btn.addEventListener('click', () => parseAndPopulate(item.data, item.name));
+    bar.appendChild(btn);
+  });
+}
+
 
 function init() {
 // Install event handlers for the pointer target
@@ -696,7 +734,16 @@ function init() {
   el.onpointercancel = pointerupHandler;
   el.onpointerout = pointerupHandler;
   el.onpointerleave = pointerupHandler;
+  loadLibrary();
   loadDefaultFile();
+  const toggleLibraryBtn = document.getElementById('toggleLibrary');
+  const libraryBar = document.getElementById('libraryBar');
+  if (toggleLibraryBtn && libraryBar) {
+    toggleLibraryBtn.addEventListener('click', () => {
+      libraryBar.style.display = libraryBar.style.display === 'none' ? 'flex' : 'none';
+      updatePageHeight();
+    });
+  }
 }
 function pointerdownHandler(ev) {
   evCache.push(ev);
@@ -1318,12 +1365,13 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
 ###  #  ### # #  #  ##
 */
 
-function parseAndPopulate(text) {
+function parseAndPopulate(text, name) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(text, "text/xml");
   displayScoreInfo(parseScoreInfo(xmlDoc));
   populateStaffFromMusicXML(xmlDoc);
   if (autoFeaturesEnabled) requestAnimationFrame(tieify);
+  if (name) saveToLibrary(name, text);
 }
 
 function loadFile(file) {
@@ -1355,11 +1403,11 @@ function loadFile(file) {
 
       if (!xmlPath) throw new Error('No XML file found in archive');
       return zip.file(xmlPath).async('string');
-    }).then(parseAndPopulate)
+    }).then(text => parseAndPopulate(text, file.name))
       .catch(err => console.error('Error loading MXL file:', err));
   } else {
     const reader = new FileReader();
-    reader.onload = () => parseAndPopulate(reader.result);
+    reader.onload = () => parseAndPopulate(reader.result, file.name);
     reader.readAsText(file);
   }
 }
