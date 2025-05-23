@@ -2042,7 +2042,14 @@ if (playBtn) {
       icon.classList.remove('fa-play');
       icon.classList.add('fa-stop');
     }
-    const blocks = Array.from(document.querySelectorAll('#zoomContainer .staff'));
+    const allBlocks = Array.from(document.querySelectorAll('#zoomContainer .staff'));
+    const range = getHighlightedIndices() || getSelectionIndices();
+    let blocks = allBlocks;
+    if (range) {
+      const [start, end] = range;
+      const set = new Set(noteElements.slice(start, end + 1).map(n => n.closest('.staff')));
+      blocks = allBlocks.filter(b => set.has(b));
+    }
     const baseDelay = Math.max(0.1, parseFloat(stayTimeInput.value) || 1) * 1000;
     const rhythm = {
       whole: 1,
@@ -2277,6 +2284,14 @@ function getSelectionIndices() {
   const endIdx = Math.max(...Array.from(lastNotes).map(n => parseInt(n.dataset.index)));
   if (isNaN(startIdx) || isNaN(endIdx) || startIdx > endIdx) return null;
   return [startIdx, endIdx];
+}
+
+function getHighlightedIndices() {
+  const highlighted = document.querySelectorAll('.note.phrase-highlight');
+  if (!highlighted.length) return null;
+  const indices = Array.from(highlighted).map(n => parseInt(n.dataset.index)).filter(n => !isNaN(n));
+  if (!indices.length) return null;
+  return [Math.min(...indices), Math.max(...indices)];
 }
 
 document.addEventListener("mouseup", () => {
