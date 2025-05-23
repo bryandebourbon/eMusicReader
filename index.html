@@ -743,9 +743,12 @@ function loadLibrary() {
 
 function saveToLibrary(name, data) {
   const existingIndex = library.findIndex(f => f.name === name);
-  if (existingIndex !== -1) library.splice(existingIndex, 1);
-  library.unshift({ name, data });
-  if (library.length > 10) library.pop();
+  if (existingIndex !== -1) {
+    library[existingIndex].data = data;
+  } else {
+    library.push({ name, data });
+    if (library.length > 10) library.shift();
+  }
   localStorage.setItem('xmlLibrary', JSON.stringify(library));
   renderLibrary();
   const bar = document.getElementById('libraryBar');
@@ -944,12 +947,7 @@ document.getElementById('renderBeams').addEventListener('click', () => {
 function loadDefaultFile() {
   fetch('ddd.xml')
     .then(response => response.text())
-    .then(data => {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(data,'text/xml');
-      displayScoreInfo(parseScoreInfo(xmlDoc));
-      populateStaffFromMusicXML(xmlDoc);
-    })
+    .then(data => parseAndPopulate(data, 'ddd.xml'))
     .catch(error => console.error('Error loading the default file:', error));
 }
 
