@@ -1820,7 +1820,14 @@ const openSettings = document.getElementById('openSettings');
 const closeSettings = document.getElementById('closeSettings');
 const darkModeToggle = document.getElementById('toggleDarkMode');
 const aiModeToggle = document.getElementById('toggleAiMode');
-let aiModeEnabled = true;
+let aiModeEnabled = false;
+if (aiModeToggle) {
+  const icon = aiModeToggle.querySelector('i');
+  if (icon) {
+    icon.classList.toggle('fa-brain', aiModeEnabled);
+    icon.classList.toggle('fa-ban', !aiModeEnabled);
+  }
+}
 
 const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
 const toggleExtraControlsBtn = document.getElementById('toggleExtraControls');
