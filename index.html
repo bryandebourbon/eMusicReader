@@ -377,6 +377,17 @@ svg {
 .show-note-letters .note .letter {
   display: block;
 }
+.note .finger {
+  position: absolute;
+  bottom: calc(100% + 0.1em);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8em;
+  line-height: 1;
+  color: var(--line-color);
+  user-select: none;
+  z-index: 6;
+}
 .note.half .letter,
 .note.whole .letter {
   color: var(--note-color);
@@ -859,10 +870,34 @@ async function queryChatGPT(promptText, apiKey, mode='analysis') {
   }
 }
 
-function displayAnalysis(analysis) {
+function clearFingeringNumbers() {
+  document.querySelectorAll('.note .finger').forEach(el => el.remove());
+}
+
+function applyFingeringNumbers(text, start, end) {
+  clearFingeringNumbers();
+  const digits = text.match(/[1-5]/g);
+  if (!digits) return;
+  for (let i = 0; i < digits.length && start + i <= end; i++) {
+    const note = noteElements[start + i];
+    if (!note) continue;
+    let span = note.querySelector('.finger');
+    if (!span) {
+      span = document.createElement('span');
+      span.className = 'finger';
+      note.appendChild(span);
+    }
+    span.textContent = digits[i];
+  }
+}
+
+function displayAnalysis(analysis, startIdx = null, endIdx = null) {
   const analysisDiv = document.getElementById('chatgptAnalysis');
   if (analysisDiv) {
     analysisDiv.textContent = analysis;
+  }
+  if (aiMode === 'fingering' && startIdx !== null && endIdx !== null) {
+    applyFingeringNumbers(analysis, startIdx, endIdx);
   }
 }
 
@@ -1689,6 +1724,7 @@ function drawPhraseBox(startIdx, endIdx, isWinner = false) {
 
 function highlightSelectedRange(startIdx, endIdx) {
   noteElements.forEach(n => n.classList.remove('phrase-highlight'));
+  clearFingeringNumbers();
   clearPhraseBoxes();
   for (let i = startIdx; i <= endIdx; i++) {
     const el = noteElements[i];
@@ -2149,6 +2185,7 @@ function updateTempLetters() {
 function clearSelection() {
   sheetElement.querySelectorAll(".staff.selected").forEach(el => el.classList.remove("selected"));
   sheetElement.querySelectorAll('.staff.show-letters').forEach(el => el.classList.remove('show-letters'));
+  clearFingeringNumbers();
 }
 
 sheetElement.addEventListener("mousedown", e => {
@@ -2267,7 +2304,7 @@ function highlightExactFromSelection() {
     prompt = `Analyze this melody:\n- Notes: ${notesSelected.join(' ').toUpperCase()}\n- Key: C Major (adjust accordingly)\n- Tempo: 120 BPM (adjust accordingly)\n- Rhythm: Quarter notes (adjust accordingly)\n\nProvide musical insights or context about this melody.`;
   }
   queryChatGPT(prompt, apiKey, aiMode)
-    .then(displayAnalysis)
+    .then(res => displayAnalysis(res, startIdx, endIdx))
     .catch(err => {
       console.error(err);
       alert('Error: ' + err.message);
