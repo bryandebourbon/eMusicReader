@@ -1958,6 +1958,12 @@ function playFreq(freq, duration) {
   osc.stop(audioCtx.currentTime + duration);
 }
 
+function triggerHaptic() {
+  if (navigator.vibrate) {
+    navigator.vibrate(10);
+  }
+}
+
 
 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.documentElement.classList.add('dark-mode');
@@ -2191,6 +2197,7 @@ let startIndex = -1;
 let staffList = [];
 let startX = 0;
 let startY = 0;
+let lastHapticIndex = -1;
 
 function updateTempLetters() {
   sheetElement.querySelectorAll('.staff.show-letters').forEach(el => el.classList.remove('show-letters'));
@@ -2230,6 +2237,8 @@ sheetElement.addEventListener("touchstart", e => {
   clearSelection();
   block.classList.add("selected");
   updateTempLetters();
+  lastHapticIndex = startIndex;
+  triggerHaptic();
 });
 
 sheetElement.addEventListener("mousemove", e => {
@@ -2261,6 +2270,10 @@ sheetElement.addEventListener("touchmove", e => {
   if (!block) return;
   const idx = staffList.indexOf(block);
   if (idx === -1) return;
+  if (idx !== lastHapticIndex) {
+    lastHapticIndex = idx;
+    triggerHaptic();
+  }
   clearSelection();
   const [start, end] = idx >= startIndex ? [startIndex, idx] : [idx, startIndex];
   for (let i = start; i <= end; i++) {
