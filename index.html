@@ -561,6 +561,7 @@ svg {
   <button id="renderBeams" class="tooltip" data-tooltip="Render Beams"><i class="fa-solid fa-bars-staggered"></i></button>
   <button id="openSettings" class="tooltip" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></button>
   <button id="toggleDarkMode" class="tooltip" data-tooltip="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+  <button id="toggleAiMode" class="tooltip" data-tooltip="Toggle AI mode"><i class="fa-solid fa-brain"></i></button>
   <label class="tooltip" data-tooltip="Note opacity (dark mode)">
     <input type="range" id="darkOpacity" min="60" max="100" value="75">
   </label>
@@ -597,6 +598,7 @@ svg {
 <div class="sheet">
   <div id="zoomContainer"></div>
 </div>
+<div id="chatgptAnalysis" style="padding:10px; color:var(--line-color);"></div>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
@@ -612,6 +614,11 @@ svg {
     <label>Line Height <input type="range" id="lineHeight" min="0.05" max="0.5" step="0.01"></label>
     <label>Note Height <input type="range" id="noteHeight" min="0.5" max="2" step="0.1"></label>
     <label>Note Width <input type="range" id="noteWidth" min="0.5" max="2" step="0.1"></label>
+    <div>
+      <label for="apiKeyInput">OpenAI API Key:</label>
+      <input type="password" id="apiKeyInput" placeholder="Enter your OpenAI API Key">
+      <button onclick="storeApiKey()">Save Key</button>
+    </div>
   </div>
 </div>
 
@@ -794,6 +801,51 @@ function indexOfSubsequence(arr, sub) {
     return i;
   }
   return -1;
+}
+
+function storeApiKey() {
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) return;
+  localStorage.setItem('storedApiKey', btoa(apiKey));
+  alert('API key stored for this device.');
+  if (typeof settingsModal !== 'undefined') settingsModal.classList.remove('open');
+}
+
+function getApiKey() {
+  const stored = localStorage.getItem('storedApiKey');
+  return stored ? atob(stored) : null;
+}
+
+async function queryChatGPT(promptText, apiKey) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4-turbo',
+      messages: [
+        { role: 'system', content: 'You are an insightful music theorist.' },
+        { role: 'user', content: promptText }
+      ],
+      max_tokens: 150
+    })
+  });
+
+  const data = await response.json();
+  if (response.ok) {
+    return data.choices[0].message.content;
+  } else {
+    throw new Error(`ChatGPT Error: ${data.error.message}`);
+  }
+}
+
+function displayAnalysis(analysis) {
+  const analysisDiv = document.getElementById('chatgptAnalysis');
+  if (analysisDiv) {
+    analysisDiv.textContent = analysis;
+  }
 }
 
 
@@ -1769,6 +1821,8 @@ const settingsModal = document.getElementById('settingsModal');
 const openSettings = document.getElementById('openSettings');
 const closeSettings = document.getElementById('closeSettings');
 const darkModeToggle = document.getElementById('toggleDarkMode');
+const aiModeToggle = document.getElementById('toggleAiMode');
+let aiModeEnabled = true;
 
 const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
 const toggleExtraControlsBtn = document.getElementById('toggleExtraControls');
@@ -1859,6 +1913,17 @@ darkModeToggle.addEventListener('click', () => {
     icon.classList.toggle('fa-sun');
   }
 });
+if (aiModeToggle) {
+  aiModeToggle.addEventListener('click', () => {
+    aiModeEnabled = !aiModeEnabled;
+    const icon = aiModeToggle.querySelector('i');
+    if (icon) {
+      icon.classList.toggle('fa-brain', aiModeEnabled);
+      icon.classList.toggle('fa-ban', !aiModeEnabled);
+    }
+    if (!aiModeEnabled) displayAnalysis('');
+  });
+}
 if (toggleScoreInfoBtn) {
   toggleScoreInfoBtn.addEventListener('click', () => {
     const div = document.getElementById('scoreInfo');
@@ -2136,6 +2201,8 @@ function highlightExactFromSelection() {
   const startIdx = Math.min(...Array.from(firstNotes).map(n => parseInt(n.dataset.index)));
   const endIdx = Math.max(...Array.from(lastNotes).map(n => parseInt(n.dataset.index)));
   if (isNaN(startIdx) || isNaN(endIdx) || startIdx > endIdx) return;
+  const notesSelected = noteSteps.slice(startIdx, endIdx + 1);
+  highlightSelectedRange(startIdx, endIdx);
   const patternLength = endIdx - startIdx + 1;
   const selPattern = noteSteps.slice(startIdx, endIdx + 1).join('');
 
@@ -2156,6 +2223,24 @@ function highlightExactFromSelection() {
     }
     drawPhraseBox(pos, pos + patternLength - 1);
   });
+
+  if (!aiModeEnabled) return;
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    if (settingsModal) {
+      settingsModal.classList.add('open');
+      const input = document.getElementById('apiKeyInput');
+      if (input) input.focus();
+    }
+    return;
+  }
+  const prompt = `Analyze this melody:\n- Notes: ${notesSelected.join(' ').toUpperCase()}\n- Key: C Major (adjust accordingly)\n- Tempo: 120 BPM (adjust accordingly)\n- Rhythm: Quarter notes (adjust accordingly)\n\nProvide musical insights or context about this melody.`;
+  queryChatGPT(prompt, apiKey)
+    .then(displayAnalysis)
+    .catch(err => {
+      console.error(err);
+      alert('Error: ' + err.message);
+    });
 }
 
 function getSelectionIndices() {
