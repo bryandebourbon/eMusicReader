@@ -36,6 +36,10 @@ This site now includes a web manifest and service worker so it can be installed 
 
 The Web Audio API used for playback is compatible with Safari on iOS. Tap the play button to start audio—the app will resume the underlying `AudioContext` if it is suspended. Add the site to your home screen to install it as a Progressive Web App on iPhone.
 
+## AI Mode
+
+Toggle the brain icon to enable ChatGPT analysis. AI mode starts off, so you won't be prompted for an OpenAI API key unless you turn it on in the settings.
+
 ## Architecture
 
 The app is a static site that runs entirely in the browser. A service worker caches
