@@ -2059,24 +2059,31 @@ const stayTimeInput = document.getElementById('stayTime');
 let playing = false;
 let playTimeoutId;
 
-if (playBtn) {
-  playBtn.addEventListener('click', () => {
-    if (playing) {
-      playing = false;
-      clearTimeout(playTimeoutId);
-      document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
+function stopPlayback() {
+  playing = false;
+  clearTimeout(playTimeoutId);
+  document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
+  const icon = playBtn ? playBtn.querySelector('i') : null;
+  if (icon) {
+    icon.classList.remove('fa-stop');
+    icon.classList.add('fa-play');
+  }
+  if (audioCtx && audioCtx.state !== 'closed') {
+    audioCtx.suspend().catch(() => {});
+  }
+}
+
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      if (playing) {
+        stopPlayback();
+        return;
+      }
+      playing = true;
       const icon = playBtn.querySelector('i');
       if (icon) {
-        icon.classList.remove('fa-stop');
-        icon.classList.add('fa-play');
-      }
-      return;
-    }
-    playing = true;
-    const icon = playBtn.querySelector('i');
-    if (icon) {
-      icon.classList.remove('fa-play');
-      icon.classList.add('fa-stop');
+        icon.classList.remove('fa-play');
+        icon.classList.add('fa-stop');
     }
     const allBlocks = Array.from(document.querySelectorAll('#zoomContainer .staff'));
     const range = getHighlightedIndices() || getSelectionIndices();
@@ -2099,11 +2106,7 @@ if (playBtn) {
       if (!playing) return;
       document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
       if (idx >= blocks.length) {
-        playing = false;
-        if (icon) {
-          icon.classList.remove('fa-stop');
-          icon.classList.add('fa-play');
-        }
+        stopPlayback();
         return;
       }
       const current = blocks[idx];
@@ -2126,6 +2129,12 @@ if (playBtn) {
     step();
   });
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && playing) {
+    stopPlayback();
+  }
+});
 
 const colorSettings = [
   { css: '--space-color', id: 'spaceColor' },
