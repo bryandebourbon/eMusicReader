@@ -597,6 +597,7 @@ svg {
 <div class="sheet">
   <div id="zoomContainer"></div>
 </div>
+<div id="chatgptAnalysis" style="padding:10px; color:var(--line-color);"></div>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
@@ -612,6 +613,11 @@ svg {
     <label>Line Height <input type="range" id="lineHeight" min="0.05" max="0.5" step="0.01"></label>
     <label>Note Height <input type="range" id="noteHeight" min="0.5" max="2" step="0.1"></label>
     <label>Note Width <input type="range" id="noteWidth" min="0.5" max="2" step="0.1"></label>
+    <div>
+      <label for="apiKeyInput">OpenAI API Key:</label>
+      <input type="password" id="apiKeyInput" placeholder="Enter your OpenAI API Key">
+      <button onclick="storeApiKey()">Save Key</button>
+    </div>
   </div>
 </div>
 
@@ -794,6 +800,50 @@ function indexOfSubsequence(arr, sub) {
     return i;
   }
   return -1;
+}
+
+async function storeApiKey() {
+  const apiKey = document.getElementById('apiKeyInput').value;
+  const encodedKey = new TextEncoder().encode(apiKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encodedKey);
+  localStorage.setItem('encryptedApiKey', btoa(String.fromCharCode(...new Uint8Array(hashBuffer))));
+  alert('API key stored securely for this session.');
+}
+
+async function getApiKey() {
+  return prompt('Re-enter your API key for this session:', '');
+}
+
+async function queryChatGPT(promptText, apiKey) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4-turbo',
+      messages: [
+        { role: 'system', content: 'You are an insightful music theorist.' },
+        { role: 'user', content: promptText }
+      ],
+      max_tokens: 150
+    })
+  });
+
+  const data = await response.json();
+  if (response.ok) {
+    return data.choices[0].message.content;
+  } else {
+    throw new Error(`ChatGPT Error: ${data.error.message}`);
+  }
+}
+
+function displayAnalysis(analysis) {
+  const analysisDiv = document.getElementById('chatgptAnalysis');
+  if (analysisDiv) {
+    analysisDiv.textContent = analysis;
+  }
 }
 
 
@@ -2136,6 +2186,8 @@ function highlightExactFromSelection() {
   const startIdx = Math.min(...Array.from(firstNotes).map(n => parseInt(n.dataset.index)));
   const endIdx = Math.max(...Array.from(lastNotes).map(n => parseInt(n.dataset.index)));
   if (isNaN(startIdx) || isNaN(endIdx) || startIdx > endIdx) return;
+  const notesSelected = noteSteps.slice(startIdx, endIdx + 1);
+  highlightSelectedRange(startIdx, endIdx);
   const patternLength = endIdx - startIdx + 1;
   const selPattern = noteSteps.slice(startIdx, endIdx + 1).join('');
 
@@ -2156,6 +2208,19 @@ function highlightExactFromSelection() {
     }
     drawPhraseBox(pos, pos + patternLength - 1);
   });
+
+  (async () => {
+    const apiKey = await getApiKey();
+    if (!apiKey) return;
+    const prompt = `Analyze this melody:\n- Notes: ${notesSelected.join(' ').toUpperCase()}\n- Key: C Major (adjust accordingly)\n- Tempo: 120 BPM (adjust accordingly)\n- Rhythm: Quarter notes (adjust accordingly)\n\nProvide musical insights or context about this melody.`;
+    try {
+      const analysis = await queryChatGPT(prompt, apiKey);
+      displayAnalysis(analysis);
+    } catch (err) {
+      console.error(err);
+      alert('Error: ' + err.message);
+    }
+  })();
 }
 
 function getSelectionIndices() {
