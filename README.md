@@ -39,6 +39,7 @@ The Web Audio API used for playback is compatible with Safari on iOS. Tap the pl
 ## AI Mode
 
 Use the brain dropdown to select a ChatGPT mode. Choices include **Technical** analysis, **Fingering** advice, or turning the AI **Off**. The icon changes color based on the selected personality. AI is off by default so you'll only be asked for an OpenAI API key when enabling one of the modes.
+When "Fingering" is enabled, any selected passage is sent to ChatGPT and the returned fingering numbers appear above the notes.
 
 ## Architecture
 
