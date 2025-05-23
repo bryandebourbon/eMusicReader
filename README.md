@@ -38,7 +38,7 @@ The Web Audio API used for playback is compatible with Safari on iOS. Tap the pl
 
 ## AI Mode
 
-Toggle the brain icon to enable ChatGPT analysis. AI mode starts off, so you won't be prompted for an OpenAI API key unless you turn it on in the settings.
+Use the brain dropdown to select a ChatGPT mode. Choices include **Technical** analysis, **Fingering** advice, or turning the AI **Off**. The icon changes color based on the selected personality. AI is off by default so you'll only be asked for an OpenAI API key when enabling one of the modes.
 
 ## Architecture
 
