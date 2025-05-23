@@ -737,6 +737,8 @@ const pitchMap = {c:0, d:1, e:2, f:3, g:4, a:5, b:6};
 let noteElements = [];
 let detectedPatterns = {};
 
+let divisions = 1;
+
 let detectedDescending = {};
 let phraseBoxes = [];
 
@@ -1288,6 +1290,7 @@ function parseMeasureNotes(measure) {
 
         result.push({
           time: currentTime,
+          duration,
           step: stepEl.textContent.toLowerCase(),
           octave: octaveEl.textContent,
           noteType: typeEl.textContent,
@@ -1381,6 +1384,9 @@ function appendInterleavedNotes(notesByPart, measureDiv) {
 
       if (noteDiv) {
         noteDiv.dataset.index = noteSteps.length;
+        noteDiv.dataset.time = n.time;
+        noteDiv.dataset.duration = n.duration;
+        noteDiv.dataset.part = part;
         noteSteps.push(n.step);
         const pitchVal = pitchMap[n.step] + parseInt(n.octave) * 7;
         notePitches.push(pitchVal);
@@ -1544,6 +1550,8 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
 function parseAndPopulate(text, name) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(text, "text/xml");
+  const divEl = xmlDoc.querySelector('divisions');
+  divisions = divEl ? parseInt(divEl.textContent) || 1 : 1;
   displayScoreInfo(parseScoreInfo(xmlDoc));
   populateStaffFromMusicXML(xmlDoc);
   if (autoFeaturesEnabled) requestAnimationFrame(tieify);
@@ -2098,38 +2106,60 @@ function stopPlayback() {
       const set = new Set(noteElements.slice(start, end + 1).map(n => n.closest('.staff')));
       blocks = allBlocks.filter(b => set.has(b));
     }
+
+    const notes = blocks.map(b => {
+      const n = b.querySelector('.note');
+      return n ? {
+        element: b,
+        note: n,
+        time: parseFloat(n.dataset.time) || 0,
+        duration: parseFloat(n.dataset.duration) || 0
+      } : null;
+    }).filter(Boolean);
+
+    notes.sort((a, b) => a.time - b.time);
+    const groups = [];
+    notes.forEach(n => {
+      const g = groups[groups.length - 1];
+      if (!g || g.time !== n.time) {
+        groups.push({ time: n.time, notes: [n] });
+      } else {
+        g.notes.push(n);
+      }
+    });
+
     const baseDelay = Math.max(0.1, parseFloat(stayTimeInput.value) || 1) * 1000;
-    const rhythm = {
-      whole: 1,
-      half: 0.5,
-      quarter: 0.25,
-      eighth: 0.125,
-      sixteenth: 0.0625,
-    };
     let idx = 0;
     function step() {
       if (!playing) return;
       document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
-      if (idx >= blocks.length) {
+      if (idx >= groups.length) {
         stopPlayback();
         return;
       }
-      const current = blocks[idx];
-      current.classList.add('playing');
-      current.scrollIntoView({behavior:'smooth', block:'center'});
-      const note = current.querySelector('.note');
-      let factor = 1;
-      if (note) {
-        Object.keys(rhythm).forEach(k => {
-          if (note.classList.contains(k)) factor = rhythm[k];
-        });
-        if (soundEnabled && note.dataset.pitch) {
-          const freq = noteToFreq(note.dataset.pitch);
+      const group = groups[idx];
+      group.notes.forEach(n => {
+        n.element.classList.add('playing');
+        const factor = n.duration ? n.duration / (divisions * 4) : 0.25;
+        if (soundEnabled && n.note.dataset.pitch) {
+          const freq = noteToFreq(n.note.dataset.pitch);
           if (freq) playFreq(freq, (baseDelay * factor) / 1000);
         }
+      });
+      group.notes[0].element.scrollIntoView({behavior:'smooth', block:'center'});
+
+      let deltaFactor;
+      if (idx < groups.length - 1) {
+        const next = groups[idx + 1];
+        const delta = next.time - group.time;
+        deltaFactor = delta / (divisions * 4);
+      } else {
+        const maxDur = Math.max(...group.notes.map(n => n.duration));
+        deltaFactor = maxDur / (divisions * 4);
       }
+
       idx++;
-      const delay = baseDelay * factor;
+      const delay = baseDelay * deltaFactor;
       playTimeoutId = setTimeout(step, delay);
     }
     step();
