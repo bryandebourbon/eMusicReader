@@ -180,6 +180,10 @@ svg {
     background-color: var(--space-color);
     border: 1px solid var(--line-color);
   }
+  .controls button.active {
+    background-color: var(--line-color);
+    color: var(--space-color);
+  }
   .tooltip {
   position: relative;
   border: none;
@@ -569,6 +573,7 @@ svg {
   <button id="searchMelody" class="tooltip" data-tooltip="Search Melody"><i class="fa-solid fa-magnifying-glass"></i></button>
   <button id="playStaff" class="tooltip" data-tooltip="Play"><i class="fa-solid fa-play"></i></button>
   <button id="toggleSound" class="tooltip" data-tooltip="Toggle Sound"><i class="fa-solid fa-volume-high"></i></button>
+  <button id="toggleAutoScroll" class="tooltip" data-tooltip="Auto Scroll"><i class="fa-solid fa-arrows-up-down"></i></button>
   <input id="stayTime" type="number" min="0.1" step="0.1" value="1" title="Whole Note Time (s)" style="width:3em;">
   <div id="extraControls">
     <button id="prevPage" class="tooltip" data-tooltip="Previous Page"><i class="fa-solid fa-arrow-left"></i></button>
@@ -1863,6 +1868,15 @@ if (toggleSoundBtn) {
     }
   });
 }
+const toggleAutoScrollBtn = document.getElementById("toggleAutoScroll");
+let autoScrollEnabled = false;
+if (toggleAutoScrollBtn) {
+  toggleAutoScrollBtn.addEventListener("click", () => {
+    autoScrollEnabled = !autoScrollEnabled;
+    toggleAutoScrollBtn.classList.toggle("active", autoScrollEnabled);
+  });
+}
+
 
 function noteToFreq(note) {
   const match = note.match(/^([a-gA-G])(\d)$/);
@@ -2051,6 +2065,14 @@ if (playBtn) {
       }
       const current = blocks[idx];
       current.classList.add('playing');
+      if (autoScrollEnabled) {
+        const rect = current.getBoundingClientRect();
+        const sheetRect = sheetElement.getBoundingClientRect();
+        if (rect.top < sheetRect.top || rect.bottom > sheetRect.bottom) {
+          const offset = current.offsetTop - sheetElement.clientHeight / 2 + current.clientHeight / 2;
+          sheetElement.scrollTop = Math.max(0, Math.min(offset, sheetElement.scrollHeight - sheetElement.clientHeight));
+        }
+      }
       const note = current.querySelector('.note');
       let factor = 1;
       if (note) {
