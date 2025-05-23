@@ -2111,6 +2111,7 @@ function stopPlayback() {
       }
       const current = blocks[idx];
       current.classList.add('playing');
+      current.scrollIntoView({behavior:'smooth', block:'center'});
       const note = current.querySelector('.note');
       let factor = 1;
       if (note) {
