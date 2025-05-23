@@ -1938,7 +1938,9 @@ function noteToFreq(note) {
 }
 
 function playFreq(freq, duration) {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
   if (audioCtx.state === 'suspended') {
     try {
       audioCtx.resume();
@@ -2068,8 +2070,11 @@ function stopPlayback() {
     icon.classList.remove('fa-stop');
     icon.classList.add('fa-play');
   }
-  if (audioCtx && audioCtx.state !== 'closed') {
-    audioCtx.suspend().catch(() => {});
+  if (audioCtx) {
+    try {
+      audioCtx.close();
+    } catch (e) {}
+    audioCtx = null;
   }
 }
 
