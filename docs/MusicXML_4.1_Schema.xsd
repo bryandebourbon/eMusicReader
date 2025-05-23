@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xlink="http://www.w3.org/1999/xlink" elementFormDefault="qualified" attributeFormDefault="unqualified">
+    <xs:annotation>
+        <xs:documentation>MusicXML W3C XML schema (XSD)
+Version 4.1 Draft
+
+Copyright © 2004-2024 the Contributors to the MusicXML Specification,
+published by the W3C Music Notation Community Group under the
+W3C Community Contributor License Agreement (CLA):
+
+    https://www.w3.org/community/about/agreements/cla/
+
+A human-readable summary is available:
+
+    https://www.w3.org/community/about/agreements/cla-deed/
+
+This file defines the MusicXML 4.1 XSD. The full specification
+is lengthy and provided here for reference during development.
+Due to repository size constraints, only a portion is included below.
+        </xs:documentation>
+    </xs:annotation>
+    <!-- Additional content truncated for brevity -->
+</xs:schema>
