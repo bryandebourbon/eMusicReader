@@ -247,14 +247,18 @@ svg {
   
 .sheet {
   padding: 40px;
-  position:relative;
+  position: relative;
   overflow-y: auto;
+  width: 100%;
+  height: 100%;
 }
 
 #zoomContainer {
   display: flex;
   flex-wrap: wrap;
   transform-origin: 0 0;
+  width: 100%;
+  min-width: 100vw;
 }
 .measure {
   position: relative;
@@ -560,7 +564,7 @@ svg {
 .##.....##....##....##.....##.########
 ######################################
 -->
-<body onload="init();" style="touch-action:pan-y; overscroll-behavior:contain" >
+<body onload="init();" style="touch-action: pan-y; overscroll-behavior: contain;" >
 <div class="controls">
   <input
     id="xmlInput"
@@ -720,6 +724,23 @@ document.addEventListener('touchstart', e => {
   if (e.touches.length > 1) {
     e.preventDefault();
   }
+}, {passive: false});
+document.addEventListener('touchmove', e => {
+  // Only prevent default for multi-touch (pinch) gestures
+  if (e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, {passive: false});
+document.addEventListener('touchend', e => {
+  // Only prevent default if we were in a multi-touch gesture
+  if (e.touches.length > 0 || evCache.length > 1) {
+    e.preventDefault();
+  }
+}, {passive: false});
+document.addEventListener('touchcancel', e => {
+  // Reset gesture state when touches are cancelled
+  evCache = [];
+  prevDiff = -1;
 }, {passive: false});
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => {
@@ -911,6 +932,13 @@ function init() {
   el.onpointercancel = pointerupHandler;
   el.onpointerout = pointerupHandler;
   el.onpointerleave = pointerupHandler;
+  
+  // Add touch event handlers for better mobile support
+  el.addEventListener('touchcancel', () => {
+    evCache = [];
+    prevDiff = -1;
+  });
+  
   loadLibrary();
   loadDefaultFile();
   const toggleLibraryBtn = document.getElementById('toggleLibrary');
@@ -927,8 +955,7 @@ function pointerdownHandler(ev) {
 }
 
 function pointermoveHandler(ev) {
-
-  // Update stored pointer event
+  // Find and update the stored pointer event
   for (let i = 0; i < evCache.length; i++) {
     if (evCache[i].pointerId === ev.pointerId) {
       evCache[i] = ev;
@@ -946,8 +973,9 @@ function pointermoveHandler(ev) {
 
     if (prevDiff > 0) {
       const diffChange = curDiff - prevDiff;
-      zoomLevel = Math.min(3, Math.max(0.5, zoomLevel + diffChange * 0.005));
-      zoomContainer.style.transform = `scale(${zoomLevel})`;
+      const newZoomLevel = zoomLevel + diffChange * 0.005;
+      setZoomLevel(newZoomLevel);
+      
       if (autoFeaturesEnabled) tieify();
     }
     prevDiff = curDiff;
@@ -955,8 +983,16 @@ function pointermoveHandler(ev) {
 }
 
 function pointerupHandler(ev) {
+  // Remove the pointer from the cache
   evCache = evCache.filter(e => e.pointerId !== ev.pointerId);
+  
+  // Reset prevDiff when we don't have two pointers anymore
   if (evCache.length < 2) {
+    prevDiff = -1;
+  }
+  
+  // If no pointers left, ensure we're not stuck in a gesture state
+  if (evCache.length === 0) {
     prevDiff = -1;
   }
 }
@@ -970,17 +1006,28 @@ const assets = document.querySelector('.assets')
 const zoomContainer = document.getElementById('zoomContainer');
 let zoomLevel = 1;
 
-document.getElementById('zoomIn').addEventListener('click', () => {
-  zoomLevel += 0.1;
+// Helper function to set zoom level and maintain proper scroll view width
+function setZoomLevel(newZoomLevel) {
+  zoomLevel = Math.min(3, Math.max(0.5, newZoomLevel));
   zoomContainer.style.transform = `scale(${zoomLevel})`;
+  
+  // Maintain full viewport width by adjusting the container width inversely to the scale
+  const adjustedWidth = 100 / zoomLevel;
+  zoomContainer.style.width = `${adjustedWidth}vw`;
+  zoomContainer.style.minWidth = `${adjustedWidth}vw`;
+}
+
+// Initialize with proper zoom level
+setZoomLevel(1);
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  setZoomLevel(zoomLevel + 0.1);
   if (autoFeaturesEnabled) tieify();
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
-  zoomLevel -= 0.1;
-  zoomContainer.style.transform = `scale(${zoomLevel})`;
+  setZoomLevel(zoomLevel - 0.1);
   if (autoFeaturesEnabled) tieify();
-
 });
 
 document.getElementById('refreshTies').addEventListener('click', () => {
