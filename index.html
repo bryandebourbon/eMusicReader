@@ -774,6 +774,59 @@ let currentFile = null;
 let previousContext = null;
 let afterLoadCallback = null;
 
+// Global music timeline for polyphonic playback
+let musicTimeline = [];
+let timelineByMeasure = [];
+let divisionsPerQuarter = 20; // Default, will be updated from MusicXML
+
+// Global audio effects
+let reverbNode = null;
+let globalAudioContext = null;
+
+function getAudioContext() {
+  if (!globalAudioContext || globalAudioContext.state === 'closed') {
+    globalAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return globalAudioContext;
+}
+
+function createReverb(audioCtx) {
+  // Always create fresh reverb for the current audio context
+  const convolver = audioCtx.createConvolver();
+  const reverbGain = audioCtx.createGain();
+  const dryGain = audioCtx.createGain();
+  const wetGain = audioCtx.createGain();
+  
+  // Create impulse response for reverb (simulates room acoustics)
+  const length = audioCtx.sampleRate * 2; // 2 seconds of reverb
+  const impulse = audioCtx.createBuffer(2, length, audioCtx.sampleRate);
+  
+  for (let channel = 0; channel < 2; channel++) {
+    const channelData = impulse.getChannelData(channel);
+    for (let i = 0; i < length; i++) {
+      const decay = Math.pow(1 - i / length, 2);
+      channelData[i] = (Math.random() * 2 - 1) * decay * 0.1;
+    }
+  }
+  
+  convolver.buffer = impulse;
+  
+  // Set up wet/dry mix (30% wet, 70% dry)
+  dryGain.gain.value = 0.7;
+  wetGain.gain.value = 0.3;
+  
+  // Connect the reverb chain
+  reverbGain.connect(dryGain);
+  reverbGain.connect(convolver);
+  convolver.connect(wetGain);
+  
+  const output = audioCtx.createGain();
+  dryGain.connect(output);
+  wetGain.connect(output);
+  
+  return { input: reverbGain, output: output };
+}
+
 function loadLibrary() {
   library = JSON.parse(localStorage.getItem('xmlLibrary') || '[]');
   renderLibrary();
@@ -1364,6 +1417,12 @@ function parseScoreInfo(xmlDoc) {
   const info = { dynamics: [], textDirections: [] };
   const attr = xmlDoc.querySelector('part measure attributes');
   if (attr) {
+    const divisions = attr.querySelector('divisions');
+    if (divisions) {
+      divisionsPerQuarter = parseInt(divisions.textContent);
+      info.divisions = divisionsPerQuarter;
+      console.log('Found divisions per quarter note:', divisionsPerQuarter);
+    }
     const fifths = attr.querySelector('key fifths');
     if (fifths) info.key = fifths.textContent;
     const beats = attr.querySelector('time beats');
@@ -1495,6 +1554,10 @@ function populateStaffFromMusicXML(xmlDoc) {
   detectedDescending = {};
   clearPhraseBoxes();
 
+  // Reset music timeline
+  musicTimeline = [];
+  timelineByMeasure = [];
+
   displayScoreInfo(parseScoreInfo(xmlDoc));
 
   const parts = xmlDoc.getElementsByTagName("part");
@@ -1513,9 +1576,15 @@ function populateStaffFromMusicXML(xmlDoc) {
     measureDiv = appendInterleavedNotes(notesForMeasure, measureDiv);
 
     sheet.appendChild(measureDiv);
+    
+    // Build timeline for this measure
+    timelineByMeasure[i] = buildMeasureTimeline(notesForMeasure, measureDiv);
   }
+  
+  // Build complete timeline
+  buildCompleteTimeline();
+  
   // Ensure layout is calculated before drawing beams and ties
-
   requestAnimationFrame(() => {
       detectPatternsFromSteps();
       detectDescendingPatterns();
@@ -1534,6 +1603,111 @@ function populateStaffFromMusicXML(xmlDoc) {
   });
 }
 
+function buildMeasureTimeline(notesByPart, measureDiv) {
+  const measureTimeline = [];
+  const staffBlocks = Array.from(measureDiv.querySelectorAll('.staff'));
+  let staffIndex = 0;
+  
+  // Get all notes from all parts and sort by time
+  const allNotes = [];
+  notesByPart.forEach((notes, partIdx) => {
+    notes.forEach(note => {
+      allNotes.push({ ...note, part: partIdx });
+    });
+  });
+  
+  allNotes.sort((a, b) => {
+    if (a.time === b.time) return a.part - b.part;
+    return a.time - b.time;
+  });
+  
+  // Map notes to their staff elements
+  allNotes.forEach(note => {
+    if (!note.isChord && staffIndex < staffBlocks.length) {
+      const staffBlock = staffBlocks[staffIndex];
+      const noteElement = staffBlock ? staffBlock.querySelector('.note') : null;
+      
+      if (staffBlock && noteElement && noteElement.dataset.pitch) {
+        // Convert MusicXML divisions to beats
+        const timeInBeats = note.time / divisionsPerQuarter;
+        
+        measureTimeline.push({
+          time: timeInBeats,
+          duration: getDurationFromNoteType(note.noteType),
+          pitch: noteElement.dataset.pitch,
+          noteType: note.noteType,
+          staffElement: staffBlock,
+          noteElement: noteElement,
+          part: note.part
+        });
+      } else {
+        console.warn('Missing staff block or note element for note:', note);
+      }
+      staffIndex++;
+    }
+  });
+  
+  return measureTimeline;
+}
+
+function buildCompleteTimeline() {
+  musicTimeline = [];
+  let globalTime = 0;
+  
+  if (!timelineByMeasure || timelineByMeasure.length === 0) {
+    console.warn('No timeline data available to build complete timeline');
+    return;
+  }
+  
+  console.log('Building complete timeline from', timelineByMeasure.length, 'measures');
+  
+  timelineByMeasure.forEach((measureTimeline, measureIndex) => {
+    if (!measureTimeline || measureTimeline.length === 0) {
+      console.warn(`Empty timeline for measure ${measureIndex}`);
+      // Still advance time for empty measures
+      globalTime += 4; // Standard 4/4 measure
+      return;
+    }
+    
+    console.log(`Measure ${measureIndex}: ${measureTimeline.length} notes, starting at globalTime ${globalTime}`);
+    
+    measureTimeline.forEach(note => {
+      const noteGlobalTime = globalTime + note.time;
+      musicTimeline.push({
+        ...note,
+        globalTime: noteGlobalTime,
+        measureIndex: measureIndex
+      });
+      console.log(`  Note: ${note.pitch}, time=${note.time}, globalTime=${noteGlobalTime}, duration=${note.duration}`);
+    });
+    
+    // Use standard 4-beat measure duration (4/4 time)
+    // This is more reliable than calculating from note positions
+    const measureDuration = 4;
+    console.log(`  Measure ${measureIndex} duration: ${measureDuration} beats`);
+    globalTime += measureDuration;
+  });
+  
+  // Sort by global time
+  musicTimeline.sort((a, b) => {
+    if (a.globalTime === b.globalTime) return a.part - b.part;
+    return a.globalTime - b.globalTime;
+  });
+  
+  console.log('Built complete timeline with', musicTimeline.length, 'notes');
+  console.log('Timeline summary:', musicTimeline.map(n => `${n.pitch}@${n.globalTime}`).slice(0, 10));
+}
+
+function getDurationFromNoteType(noteType) {
+  const durations = {
+    whole: 4,
+    half: 2,
+    quarter: 1,
+    eighth: 0.5,
+    sixteenth: 0.25
+  };
+  return durations[noteType] || 1;
+}
 
 //  ## ###  #  ### ### ##  #    #   ## # #
 // #    #  # # #   #   # # #   # # #   # #
@@ -1560,6 +1734,11 @@ function genStaffBlock(pitchSpace='e4', noteType='quarter') {
 }
 
 function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
+  // Return null if existingStaffBlock is null
+  if (!existingStaffBlock) {
+    console.warn('plotStaffBlock called with null existingStaffBlock, creating new staff block');
+    return genStaffBlock(pitchSpace, noteType);
+  }
 
   const noteClone = assets.querySelector('.note').cloneNode(true);
   noteClone.id = Math.random();
@@ -1574,7 +1753,7 @@ function plotStaffBlock(existingStaffBlock, pitchSpace, noteType) {
     ? existingStaffBlock.dataset.letters + " " + stepLetter
     : stepLetter;
   const plotSpace = existingStaffBlock.querySelector(`.${pitchSpace}`);
-  if (plotSpace == null) return;
+  if (plotSpace == null) return existingStaffBlock;
   plotSpace.appendChild(noteClone);
   return existingStaffBlock;
 }
@@ -1984,27 +2163,66 @@ function noteToFreq(note) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-function playFreq(freq, duration) {
-  if (!audioCtx || audioCtx.state === 'closed') {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+function playFreqWithDuration(freq, startTime, duration) {
+  // Efficient single oscillator synthesis
+  const audioCtx = getAudioContext();
+  if (!audioCtx) return null;
+
   if (audioCtx.state === 'suspended') {
     try {
       audioCtx.resume();
     } catch (e) {
       console.warn('Failed to resume AudioContext', e);
+      return null;
     }
   }
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + duration);
-}
 
+  // Stop if we are at the hard limit to prevent browser crashing
+  // Also run cleanup if we're getting close to the limit
+  if (activeOscillators.length >= MAX_CONCURRENT_OSCILLATORS * 0.8) {
+    cleanupFinishedOscillators(); 
+    if (activeOscillators.length >= MAX_CONCURRENT_OSCILLATORS) {
+      // console.warn('Hard oscillator limit reached, skipping note to prevent crash.');
+      return null; // Skip silently if still at limit after cleanup
+    }
+  }
+
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  osc.type = 'triangle'; // A good balance of simple and pleasant sound
+  osc.frequency.value = freq;
+
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  // Simple envelope for clarity
+  const attackTime = 0.005;
+  const releaseTime = Math.min(duration * 0.1, 0.1); // Short release for clarity
+  const sustainLevel = 0.2;
+
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(sustainLevel, startTime + attackTime);
+  // Hold sustain level until just before release
+  if (duration > attackTime + releaseTime) {
+    gainNode.gain.setValueAtTime(sustainLevel, startTime + duration - releaseTime);
+  }
+  gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+
+  const stopTime = startTime + duration;
+  osc.start(startTime);
+  osc.stop(stopTime);
+
+  osc.stopTime = stopTime; // For cleanup tracking
+  activeOscillators.push(osc);
+
+  osc.onended = () => {
+    const index = activeOscillators.indexOf(osc);
+    if (index > -1) activeOscillators.splice(index, 1);
+  };
+
+  return gainNode; // Though not strictly needed by caller anymore
+}
 
 if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
   document.documentElement.classList.add('dark-mode');
@@ -2107,79 +2325,258 @@ const playBtn = document.getElementById('playStaff');
 const stayTimeInput = document.getElementById('stayTime');
 let playing = false;
 let playTimeoutId;
+let activeOscillators = []; // Track active oscillators for polyphonic playback
+const MAX_CONCURRENT_OSCILLATORS = 100; // Reasonable limit for browser performance
+let globalHighlightTimeouts = []; // Store highlight timeout IDs to cancel them
+
+function cleanupFinishedOscillators() {
+  const currentTime = getAudioContext().currentTime;
+  const initialCount = activeOscillators.length;
+  
+  activeOscillators = activeOscillators.filter(osc => {
+    if (osc.stopTime && currentTime > osc.stopTime + 0.1) {
+      try {
+        if (osc.stop) osc.stop();
+      } catch (e) {
+        // Already stopped
+      }
+      return false;
+    }
+    return true;
+  });
+  
+  if (initialCount > activeOscillators.length) {
+    console.log(`Cleaned up ${initialCount - activeOscillators.length} finished oscillators`);
+  }
+}
 
 function stopPlayback() {
   playing = false;
   clearTimeout(playTimeoutId);
+  
+  // Clear all pending visual highlight timeouts
+  globalHighlightTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+  globalHighlightTimeouts = []; // Reset the array
+  
+  // Stop all active oscillators
+  activeOscillators.forEach(osc => {
+    try {
+      osc.stop();
+    } catch (e) {
+      // Oscillator might already be stopped
+    }
+  });
+  activeOscillators = [];
+  
+  // Explicitly remove any active visual highlights
   document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
+  
+  // Reset play button icon
   const icon = playBtn ? playBtn.querySelector('i') : null;
   if (icon) {
     icon.classList.remove('fa-stop');
     icon.classList.add('fa-play');
   }
-  if (audioCtx) {
+  
+  // Don't close the global audio context, just suspend it for reuse
+  if (globalAudioContext && globalAudioContext.state === 'running') {
     try {
-      audioCtx.close();
-    } catch (e) {}
-    audioCtx = null;
+      globalAudioContext.suspend();
+    } catch (e) {
+      console.warn('Failed to suspend AudioContext', e);
+    }
   }
 }
 
-  if (playBtn) {
-    playBtn.addEventListener('click', () => {
-      if (playing) {
-        stopPlayback();
-        return;
-      }
-      playing = true;
-      const icon = playBtn.querySelector('i');
-      if (icon) {
-        icon.classList.remove('fa-play');
-        icon.classList.add('fa-stop');
+function playFreqWithDuration(freq, startTime, duration) {
+  // Efficient single oscillator synthesis
+  const audioCtx = getAudioContext();
+  if (!audioCtx) return null;
+
+  if (audioCtx.state === 'suspended') {
+    try {
+      audioCtx.resume();
+    } catch (e) {
+      console.warn('Failed to resume AudioContext', e);
+      return null;
     }
-    const allBlocks = Array.from(document.querySelectorAll('#zoomContainer .staff'));
+  }
+
+  // Stop if we are at the hard limit to prevent browser crashing
+  // Also run cleanup if we're getting close to the limit
+  if (activeOscillators.length >= MAX_CONCURRENT_OSCILLATORS * 0.8) {
+    cleanupFinishedOscillators(); 
+    if (activeOscillators.length >= MAX_CONCURRENT_OSCILLATORS) {
+      // console.warn('Hard oscillator limit reached, skipping note to prevent crash.');
+      return null; // Skip silently if still at limit after cleanup
+    }
+  }
+
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  osc.type = 'triangle'; // A good balance of simple and pleasant sound
+  osc.frequency.value = freq;
+
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  // Simple envelope for clarity
+  const attackTime = 0.005;
+  const releaseTime = Math.min(duration * 0.1, 0.1); // Short release for clarity
+  const sustainLevel = 0.2;
+
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(sustainLevel, startTime + attackTime);
+  // Hold sustain level until just before release
+  if (duration > attackTime + releaseTime) {
+    gainNode.gain.setValueAtTime(sustainLevel, startTime + duration - releaseTime);
+  }
+  gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+
+  const stopTime = startTime + duration;
+  osc.start(startTime);
+  osc.stop(stopTime);
+
+  osc.stopTime = stopTime; // For cleanup tracking
+  activeOscillators.push(osc);
+
+  osc.onended = () => {
+    const index = activeOscillators.indexOf(osc);
+    if (index > -1) activeOscillators.splice(index, 1);
+  };
+
+  return gainNode; // Though not strictly needed by caller anymore
+}
+
+if (playBtn) {
+  playBtn.addEventListener('click', () => {
+    if (playing) {
+      stopPlayback(); // This will now also clear visual timeouts
+      return;
+    }
+    
+    if (!musicTimeline.length) {
+      console.warn('No music timeline available for playback');
+      return;
+    }
+    
+    console.log('Starting playback with timeline:', musicTimeline.length, 'notes');
+    
+    // Clean up any lingering oscillators before starting
+    cleanupFinishedOscillators();
+    
+    playing = true;
+    const icon = playBtn.querySelector('i');
+    if (icon) {
+      icon.classList.remove('fa-play');
+      icon.classList.add('fa-stop');
+    }
+    
+    // Get the range to play (if any selection)
     const range = getHighlightedIndices() || getSelectionIndices();
-    let blocks = allBlocks;
+    let timelineToPlay = musicTimeline;
+    
     if (range) {
-      const [start, end] = range;
-      const set = new Set(noteElements.slice(start, end + 1).map(n => n.closest('.staff')));
-      blocks = allBlocks.filter(b => set.has(b));
-    }
-    const baseDelay = Math.max(0.1, parseFloat(stayTimeInput.value) || 1) * 1000;
-    const rhythm = {
-      whole: 1,
-      half: 0.5,
-      quarter: 0.25,
-      eighth: 0.125,
-      sixteenth: 0.0625,
-    };
-    let idx = 0;
-    function step() {
-      if (!playing) return;
-      document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
-      if (idx >= blocks.length) {
-        stopPlayback();
-        return;
+      // Filter timeline to only include notes in the selected range
+      const selectedNoteElements = noteElements.slice(range[0], range[1] + 1);
+      const selectedStaffs = new Set(selectedNoteElements.map(n => n.closest('.staff')));
+      timelineToPlay = musicTimeline.filter(note => selectedStaffs.has(note.staffElement));
+      console.log('Playing selected range:', range, 'filtered to', timelineToPlay.length, 'notes');
+      
+      // Adjust timeline to start from 0 for selected portion
+      if (timelineToPlay.length > 0) {
+        const minTime = Math.min(...timelineToPlay.map(note => note.globalTime));
+        timelineToPlay = timelineToPlay.map(note => ({
+          ...note,
+          globalTime: note.globalTime - minTime
+        }));
       }
-      const current = blocks[idx];
-      current.classList.add('playing');
-      current.scrollIntoView({behavior:'smooth', block:'center'});
-      const note = current.querySelector('.note');
-      let factor = 1;
-      if (note) {
-        Object.keys(rhythm).forEach(k => {
-          if (note.classList.contains(k)) factor = rhythm[k];
-        });
-        if (soundEnabled && note.dataset.pitch) {
-          const freq = noteToFreq(note.dataset.pitch);
-          if (freq) playFreq(freq, (baseDelay * factor) / 1000);
+    }
+    
+    if (!timelineToPlay.length) {
+      console.warn('No notes to play after filtering');
+      stopPlayback();
+      return;
+    }
+    
+    const baseDelay = Math.max(0.1, parseFloat(stayTimeInput.value) || 1) * 1000; // Convert to ms
+    
+    // Initialize audio context
+    const audioCtx = getAudioContext();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    
+    const startTime = audioCtx.currentTime + 0.1;
+    
+    // Pre-calculate all timing to reduce scheduling overhead
+    const scheduledNotes = timelineToPlay.map(note => ({
+      ...note,
+      audioStartTime: startTime + (note.globalTime * baseDelay / 1000),
+      audioDuration: note.duration * baseDelay / 1000,
+      visualStartTime: note.globalTime * baseDelay,
+      visualDuration: note.duration * baseDelay
+    }));
+    
+    // Schedule all audio at once for better performance
+    scheduledNotes.forEach(note => {
+      if (soundEnabled && note.pitch) {
+        const freq = noteToFreq(note.pitch);
+        if (freq) {
+          playFreqWithDuration(freq, note.audioStartTime, note.audioDuration);
         }
       }
-      idx++;
-      const delay = baseDelay * factor;
-      playTimeoutId = setTimeout(step, delay);
-    }
-    step();
+    });
+    
+    // Schedule visual highlights with robust timing
+    globalHighlightTimeouts = []; // Reset for the new playback instance
+
+    scheduledNotes.forEach((note, index) => { // Add index here
+      // Schedule highlight start
+      const startTimeoutId = setTimeout(() => {
+        if (!playing) return;
+
+        document.querySelectorAll('.staff.playing').forEach(el => el.classList.remove('playing'));
+        
+        note.staffElement.classList.add('playing');
+        
+        // Revised Scroll logic
+        if (range && index === 0) { // Playing a selection, and it's the first note of the selection
+          note.staffElement.scrollIntoView({behavior:'smooth', block:'center'});
+        } else if (!range) { // Playing the whole piece
+          note.staffElement.scrollIntoView({behavior:'smooth', block:'center'});
+        }
+        // For a selection, subsequent notes (index > 0) will not scroll
+
+        // Schedule highlight end
+        const endTimeoutId = setTimeout(() => {
+          if (playing) { 
+            note.staffElement.classList.remove('playing');
+          }
+        }, note.visualDuration);
+        globalHighlightTimeouts.push(endTimeoutId);
+
+      }, note.visualStartTime);
+      globalHighlightTimeouts.push(startTimeoutId);
+    });
+    
+    // Schedule periodic cleanup during playback
+    const cleanupInterval = setInterval(() => {
+      if (!playing) {
+        clearInterval(cleanupInterval);
+        return;
+      }
+      cleanupFinishedOscillators();
+    }, 1000); // Clean up every second
+    
+    // Schedule playback end
+    const totalDuration = Math.max(...scheduledNotes.map(note => note.globalTime + note.duration)) * baseDelay;
+    
+    playTimeoutId = setTimeout(() => {
+      clearInterval(cleanupInterval);
+      stopPlayback();
+    }, totalDuration + 500); // Reduced buffer for faster response
   });
 }
 
