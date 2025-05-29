@@ -588,9 +588,6 @@ svg {
       <option value="fingering">Fingering</option>
     </select>
   </span>
-  <label class="tooltip" data-tooltip="Note opacity (dark mode)">
-    <input type="range" id="darkOpacity" min="60" max="100" value="75">
-  </label>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
   <button id="searchMelody" class="tooltip" data-tooltip="Search Melody"><i class="fa-solid fa-magnifying-glass"></i></button>
   <button id="playStaff" class="tooltip" data-tooltip="Play"><i class="fa-solid fa-play"></i></button>
@@ -2619,16 +2616,6 @@ numericSettings.forEach(s => {
   });
 });
 
-const darkOpacitySlider = document.getElementById('darkOpacity');
-if (darkOpacitySlider) {
-  function updateDarkOpacity() {
-    const value = darkOpacitySlider.value / 100;
-    document.documentElement.style.setProperty('--dark-opacity', value);
-    document.body.style.setProperty('--dark-opacity', value);
-  }
-  darkOpacitySlider.addEventListener('input', updateDarkOpacity);
-  updateDarkOpacity();
-}
 const sheetElement = document.querySelector(".sheet");
 let selecting = false;
 let startIndex = -1;
