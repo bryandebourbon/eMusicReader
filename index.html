@@ -189,6 +189,10 @@ svg {
     display: flex;
     align-items: center;
   }
+  /* Push sheet content down when AI search is open */
+  body.ai-search-open .sheet {
+    padding-top: 200px;
+  }
   .tooltip {
   position: relative;
   border: none;
@@ -591,6 +595,7 @@ svg {
       <option value="off" selected>Off</option>
       <option value="analysis">Technical</option>
       <option value="fingering">Fingering</option>
+      <option value="sheetmusic">Sheet Music</option>
     </select>
   </span>
   <button id="toggleScoreInfo" class="tooltip" data-tooltip="Score Info"><i class="fa-solid fa-circle-info"></i></button>
@@ -627,6 +632,18 @@ svg {
   <div id="zoomContainer"></div>
 </div>
 <div id="chatgptAnalysis" style="padding:10px; color:var(--line-color);"></div>
+
+<!-- Sheet Music Query Interface -->
+<div id="sheetMusicQuery" style="display:none; position:fixed; top:60px; left:10px; right:10px; background:var(--space-color); border:1px solid var(--line-color); padding:15px; z-index:15; max-height:200px; overflow-y:auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+  <h4 style="margin:0 0 10px 0; color:var(--line-color);">🎵 AI Music Generator</h4>
+  <div style="display:flex; gap:10px; margin-bottom:10px;">
+    <input id="sheetMusicInput" type="text" placeholder="e.g., 'Twinkle Twinkle Little Star' or 'Ode to Joy'" style="flex:1; padding:8px; background:var(--space-color); color:var(--line-color); border:1px solid var(--line-color);">
+    <button id="querySheetMusic" style="padding:8px 15px; background:var(--line-color); color:var(--space-color); border:none; cursor:pointer;">Generate</button>
+    <button id="saveCurrentSheet" style="padding:8px 12px; background:green; color:white; border:none; cursor:pointer;" title="Save current sheet to new library entry">💾</button>
+    <button id="closeSheetMusicQuery" style="padding:8px; background:none; color:var(--line-color); border:1px solid var(--line-color); cursor:pointer;">✕</button>
+  </div>
+  <div id="sheetMusicStatus" style="color:var(--line-color); font-size:14px;"></div>
+</div>
 
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal">
@@ -921,7 +938,10 @@ async function queryChatGPT(promptText, apiKey, mode='analysis') {
   let systemPrompt = 'You are an insightful music theorist.';
   if (mode === 'fingering') {
     systemPrompt = 'You are an expert pianist giving detailed fingering advice.';
+  } else if (mode === 'sheetmusic') {
+    systemPrompt = 'You are a music expert who generates MusicXML for songs. When asked about a song, respond ONLY with valid MusicXML code. Do not include any explanatory text, markdown formatting, or code blocks - just the raw MusicXML starting with <?xml and ending with </score-partwise>. Generate EXACTLY 20-30 complete measures with BOTH melody AND bass accompaniment. For bass parts, use bass clef notation with <clef><sign>F</sign><line>4</line></clef> and notes in octave 2-3 (like G2, A2, B2, C3, D3, E3, F3). For melody, use treble clef with octave 4-5. Include chord progressions in the bass using common patterns like I-V-vi-IV. Create multiple parts or use appropriate octave ranges so both high melody notes (octave 4-5) and low bass notes (octave 2-3) are present. Include multiple verses, choruses, or repeated sections to reach the target length. Use 4/4 time with quarter notes unless specified otherwise. Make sure every measure has proper note content for both treble and bass ranges.';
   }
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -934,7 +954,7 @@ async function queryChatGPT(promptText, apiKey, mode='analysis') {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: promptText }
       ],
-      max_tokens: 150
+      max_tokens: mode === 'sheetmusic' ? 2000 : 150  // More tokens for sheet music responses
     })
   });
 
@@ -2107,6 +2127,7 @@ function updateAiIcon() {
   let color = 'black';
   if (aiMode === 'analysis') color = 'blue';
   else if (aiMode === 'fingering') color = 'green';
+  else if (aiMode === 'sheetmusic') color = 'purple';
   aiBrainIcon.style.color = color;
 }
 if (aiModeSelect) {
@@ -2114,6 +2135,19 @@ if (aiModeSelect) {
     aiMode = aiModeSelect.value;
     updateAiIcon();
     if (aiMode === 'off') displayAnalysis('');
+    
+    // Show/hide sheet music query interface
+    const sheetMusicQuery = document.getElementById('sheetMusicQuery');
+    if (sheetMusicQuery) {
+      sheetMusicQuery.style.display = aiMode === 'sheetmusic' ? 'block' : 'none';
+      
+      // Add/remove body class for sheet padding
+      if (aiMode === 'sheetmusic') {
+        document.body.classList.add('ai-search-open');
+      } else {
+        document.body.classList.remove('ai-search-open');
+      }
+    }
   });
   updateAiIcon();
 }
@@ -2320,6 +2354,201 @@ if (searchBackBtn) {
       previousContext = null;
       openFileByName(ctx.file, ctx.indices);
     }
+  });
+}
+
+function sanitizeAndExtractXML(response) {
+  console.log('Sanitizing AI response...');
+  
+  let content = response.trim();
+  
+  // Remove common markdown artifacts
+  content = content.replace(/^```\w*\s*/, ''); // Opening code block
+  content = content.replace(/\s*```$/, '');    // Closing code block
+  content = content.replace(/^`+|`+$/g, '');   // Backticks
+  
+  // Remove common explanatory text patterns
+  content = content.replace(/^Here's?.*?:\s*/i, '');
+  content = content.replace(/^This is.*?:\s*/i, '');
+  content = content.replace(/^Below is.*?:\s*/i, '');
+  
+  // Find XML content - multiple extraction strategies
+  let xmlContent = null;
+  
+  // Strategy 1: Look for complete XML document
+  const completeXmlMatch = content.match(/<\?xml[\s\S]*?<\/score-partwise>\s*>/i);
+  if (completeXmlMatch) {
+    xmlContent = completeXmlMatch[0];
+    console.log('Found complete XML via strategy 1');
+  }
+  
+  // Strategy 2: Look for XML that might be cut off but has substantial content
+  if (!xmlContent) {
+    const partialXmlMatch = content.match(/<\?xml[\s\S]*?(?:<\/score-partwise>|$)/i);
+    if (partialXmlMatch && partialXmlMatch[0].includes('<measure')) {
+      xmlContent = partialXmlMatch[0];
+      // Try to close incomplete XML
+      if (!xmlContent.includes('</score-partwise>')) {
+        // Add missing closing tags
+        if (!xmlContent.includes('</part>')) {
+          xmlContent += '\n    </part>';
+        }
+        xmlContent += '\n</score-partwise>';
+      }
+      console.log('Found partial XML via strategy 2, attempting to close');
+    }
+  }
+  
+  // Strategy 3: Look for score-partwise block without xml declaration
+  if (!xmlContent) {
+    const scoreMatch = content.match(/<score-partwise[\s\S]*?<\/score-partwise>/i);
+    if (scoreMatch) {
+      xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n' + scoreMatch[0];
+      console.log('Found score-partwise via strategy 3, adding XML declaration');
+    }
+  }
+  
+  if (!xmlContent) {
+    throw new Error('No valid MusicXML found in response. AI may have returned explanatory text instead of XML.');
+  }
+  
+  // Clean up the XML content
+  xmlContent = xmlContent.trim();
+  
+  // Fix common encoding issues
+  xmlContent = xmlContent.replace(/&amp;/g, '&');
+  xmlContent = xmlContent.replace(/&lt;/g, '<');
+  xmlContent = xmlContent.replace(/&gt;/g, '>');
+  
+  // Validate basic XML structure
+  if (!xmlContent.includes('<score-partwise')) {
+    throw new Error('Invalid MusicXML: Missing score-partwise element');
+  }
+  
+  if (!xmlContent.includes('<part ') && !xmlContent.includes('<part>')) {
+    throw new Error('Invalid MusicXML: Missing part element');
+  }
+  
+  if (!xmlContent.includes('<measure')) {
+    throw new Error('Invalid MusicXML: No measures found');
+  }
+  
+  console.log('XML sanitization successful, found', (xmlContent.match(/<measure/g) || []).length, 'measures');
+  return xmlContent;
+}
+
+// Sheet Music Query Interface Event Handlers
+const sheetMusicInput = document.getElementById('sheetMusicInput');
+const querySheetMusicBtn = document.getElementById('querySheetMusic');
+const closeSheetMusicQueryBtn = document.getElementById('closeSheetMusicQuery');
+const saveCurrentSheetBtn = document.getElementById('saveCurrentSheet');
+const sheetMusicStatus = document.getElementById('sheetMusicStatus');
+
+if (querySheetMusicBtn && sheetMusicInput && sheetMusicStatus) {
+  querySheetMusicBtn.addEventListener('click', async () => {
+    const query = sheetMusicInput.value.trim();
+    if (!query) return;
+    
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      if (settingsModal) {
+        settingsModal.classList.add('open');
+        const input = document.getElementById('apiKeyInput');
+        if (input) input.focus();
+      }
+      return;
+    }
+    
+    querySheetMusicBtn.disabled = true;
+    querySheetMusicBtn.textContent = 'Generating...';
+    sheetMusicStatus.innerHTML = '<div style="color:var(--line-color);">🎵 Generating sheet music...</div>';
+    
+    try {
+      const response = await queryChatGPT(query, apiKey, 'sheetmusic');
+      
+      // Log the raw response for debugging
+      console.log('Raw AI response:', response);
+      
+      // Comprehensive XML sanitization and extraction
+      let xmlContent = sanitizeAndExtractXML(response);
+      
+      // Automatically load the MusicXML
+      parseAndPopulate(xmlContent, `🎵 ${query}`);
+      
+      sheetMusicStatus.innerHTML = '<div style="color:green;">✅ Sheet music loaded successfully! Generate another song above.</div>';
+      
+      // Don't auto-close anymore - keep the interface open for continuous use
+      // setTimeout(() => {
+      //   const sheetMusicQuery = document.getElementById('sheetMusicQuery');
+      //   if (sheetMusicQuery) {
+      //     sheetMusicQuery.style.display = 'none';
+      //   }
+      // }, 1500);
+      
+    } catch (error) {
+      sheetMusicStatus.innerHTML = `<div style="color:red;">❌ Error: ${error.message}</div>`;
+      console.error('Sheet music generation error:', error);
+    } finally {
+      querySheetMusicBtn.disabled = false;
+      querySheetMusicBtn.textContent = 'Generate';
+    }
+  });
+  
+  // Allow Enter key to submit query
+  sheetMusicInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      querySheetMusicBtn.click();
+    }
+  });
+}
+
+if (closeSheetMusicQueryBtn) {
+  closeSheetMusicQueryBtn.addEventListener('click', () => {
+    const sheetMusicQuery = document.getElementById('sheetMusicQuery');
+    if (sheetMusicQuery) {
+      sheetMusicQuery.style.display = 'none';
+    }
+    // Remove body class for sheet padding
+    document.body.classList.remove('ai-search-open');
+    
+    // Reset AI mode to off
+    if (aiModeSelect) {
+      aiModeSelect.value = 'off';
+      aiMode = 'off';
+      updateAiIcon();
+    }
+  });
+}
+
+if (saveCurrentSheetBtn) {
+  saveCurrentSheetBtn.addEventListener('click', () => {
+    if (!currentFile) {
+      sheetMusicStatus.innerHTML = '<div style="color:orange;">⚠️ No sheet music to save</div>';
+      return;
+    }
+    
+    // Get current file data
+    const currentFileData = library.find(f => f.name === currentFile);
+    if (!currentFileData) {
+      sheetMusicStatus.innerHTML = '<div style="color:orange;">⚠️ No current file data found</div>';
+      return;
+    }
+    
+    // Create a saved copy with timestamp
+    const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const savedName = `💾 ${currentFile.replace('🎵 ', '')} (${timestamp})`;
+    
+    // Save to library
+    saveToLibrary(savedName, currentFileData.data);
+    
+    sheetMusicStatus.innerHTML = '<div style="color:green;">💾 Saved to library!</div>';
+    
+    // Clear the status after a few seconds
+    setTimeout(() => {
+      if (sheetMusicStatus.innerHTML.includes('Saved to library')) {
+        sheetMusicStatus.innerHTML = '';
+      }
+    }, 3000);
   });
 }
 
