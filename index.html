@@ -3087,6 +3087,25 @@ nextPageBtn.addEventListener("click", () => {
   sheetElement.scrollTop = Math.min(sheetElement.scrollTop + pageHeight, sheetElement.scrollHeight - pageHeight);
 });
 
+// Hide controls and browser chrome when scrolling down
+sheetElement.addEventListener('scroll', () => {
+  const controls = document.querySelector('.controls');
+  if (!controls) return;
+  if (sheetElement.scrollTop > 0) {
+    window.scrollTo(0, 1); // nudge to hide URL bar on mobile
+    if (controls.style.display !== 'none') {
+      controls.style.display = 'none';
+      updatePageHeight();
+    }
+  } else {
+    if (controls.style.display === 'none') {
+      controls.style.display = 'flex';
+      updatePageHeight();
+    }
+    window.scrollTo(0, 0);
+  }
+});
+
 
 // Recalculate ties whenever layout changes
 window.addEventListener('resize', () => {
