@@ -7,10 +7,10 @@ To preview the `index.html` file from any branch on GitHub, you can use
 URL and branch name:
 
 ```
-https://htmlpreview.github.io/?https://raw.githubusercontent.com/<USER>/<REPO>/<BRANCH>/index.html
+https://htmlpreview.github.io/?https://raw.githubusercontent.com/<USER>/<REPO>/
 ```
 
-Replace `<USER>`, `<REPO>` and `<BRANCH>` with the appropriate values to get a
+Replace `<USER>`, `<REPO>` with the appropriate values to get a
 clickable link for testing a pull request.
 
 ## Importing Scores
