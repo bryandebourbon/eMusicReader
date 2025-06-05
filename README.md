@@ -13,6 +13,10 @@ https://htmlpreview.github.io/?https://raw.githubusercontent.com/<USER>/<REPO>/<
 Replace `<USER>`, `<REPO>` and `<BRANCH>` with the appropriate values to get a
 clickable link for testing a pull request.
 
+You can also generate the exact URL for the current branch by running
+`./preview_link.py` from the repository root. Copy the printed link into your
+pull request description for a quick preview.
+
 ## Importing Scores
 
 Drag and drop a `.musicxml` or `.mxl` file onto the page or select it with the
