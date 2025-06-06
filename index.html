@@ -245,7 +245,7 @@ svg {
   margin: 5px 0;
 }
 #xmlInput {
-  position: static;
+  display: none;
 }
 
 #scoreInfo {
@@ -555,6 +555,17 @@ svg {
   border: 4px solid green;
 }
 
+@media (max-width: 600px) {
+  .controls {
+    gap: 8px;
+  }
+  .controls button,
+  .controls select,
+  .controls input[type="number"] {
+    font-size: 1.3em;
+  }
+}
+
 /* .tie-under {
     border-color: green blue red yellow;
     border-radius: 50px 50px 50px 50px;
@@ -578,9 +589,10 @@ svg {
   <input
     id="xmlInput"
     type="file"
-    onchange="fileHandler(event)"/>
-
-  <button id="toggleExtraControls" class="tooltip" data-tooltip="Extra Controls"><i class="fa-solid fa-gear"></i></button>
+    onchange="fileHandler(event)"
+    style="display:none"/>
+  <button id="openFileBtn" class="tooltip" data-tooltip="Open File"><i class="fa-solid fa-plus"></i></button>
+  <button id="toggleExtraControls" class="tooltip" data-tooltip="More"><i class="fa-solid fa-ellipsis"></i></button>
   <button id="toggleLibrary" class="tooltip" data-tooltip="Library"><i class="fa-solid fa-book"></i></button>
   <button onclick="addStaffBlock()" class="tooltip" data-tooltip="Add Staff"><i class="fa-solid fa-plus"></i></button>
   <button id="zoomIn" class="tooltip" data-tooltip="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
@@ -2154,6 +2166,7 @@ if (aiModeSelect) {
 
 const toggleScoreInfoBtn = document.getElementById('toggleScoreInfo');
 const toggleExtraControlsBtn = document.getElementById('toggleExtraControls');
+const openFileBtn = document.getElementById('openFileBtn');
 
 const searchBtn = document.getElementById('searchMelody');
 const searchTray = document.getElementById('searchTray');
@@ -2295,6 +2308,12 @@ if (toggleExtraControlsBtn) {
     if (!div) return;
     div.style.display = div.style.display === 'none' ? 'flex' : 'none';
     updatePageHeight();
+  });
+}
+if (openFileBtn) {
+  openFileBtn.addEventListener('click', () => {
+    const input = document.getElementById('xmlInput');
+    if (input) input.click();
   });
 }
 
